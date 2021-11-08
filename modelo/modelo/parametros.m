@@ -9,14 +9,13 @@ J_w = 2.0;      % [kg.m^2] momento de inercia de ruedas (en eje lento)
 i_c = 15.0;     % [adimensional] relación de reducción de caja reductora
 J_m_c = 10.0;   % [kg.m^2] momento de inercia de motor y freno (en eje rápido)
 b_eq_c = 30.0;  % [N.m/(rad/s)] fricción mécanica equivalente
-
 x_0 = -20.0;      % [m] posición inicial
 x_min = -30.0;  % [m] posición mínima (sobre muelle)
 x_max = 50.0;   % [m] posición máxima (sobre barco)
 x_d_max = 4.0;  % [m/s] velocidad máxima (cargado o sin carga)
 x_dd_max = 1.0; % [m/s^2] aceleración máxima (cargado o sin carga)
 
-m_eq_c = m_c + ( J_w + i_c^2*J_m_c ) / R_w^2;
+J_eq_c = m_c + ( J_w + i_c^2*J_m_c ) / R_w^2;
 
 % Izaje de carga (eje y, vertical, y=0 al nivel del muelle)
 y_min = -20.0;  % [m] posición mínima (dentro de barco)
