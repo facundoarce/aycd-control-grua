@@ -34,18 +34,17 @@ y_sb = 15.0;    % [m] despeje mínimo sobre borde de muelle (sill beam)
 y_d_maxn = 1.5; % [m/s] velocidad máxima (cargado con carga nominal)
 y_d_max0 = 3.0; % [m/s] velocidad máxima (sin carga)
 y_dd_max = 1.0; % [m/s^2] aceleración máxima (cargado o sin carga)
-l_0h = 0.0;     % [m] posición inicial (REVISAR NOMBRE)
-R_d = 0.75;     % [m] diámetro de la rueda del tambor
+Rd = 0.75;      % [m] diámetro de la rueda del tambor
 J_d = 8.0;      % [kg.m^2] momento de inercia del tambor de izaje
-i_h = 30.0;     % [] relación de transmisión de motor de izaje a tambor
+ih = 30.0;      % [] relación de transmisión de motor de izaje a tambor
 J_mh = 30.0;    % [kg.m^2] momento de inercia del motor de izaje
 b_eqh = 18.0;   % [N.m.s/rad] amortiguamiento viscoso de motor de izaje
 %bd = ?
 %bmh = ?
 
 % Variables izaje:
-J_eqi = J_d + J_mh * i_h^2;
-J_eqh = J_eqi / R_d^2;
+J_eqi = J_d + J_mh * ih^2;
+J_eqh = J_eqi / Rd^2;
 % b_eqi=bd+bmh*ih^2;
 % b_eqh=b_eqi/Rd^2;
 
