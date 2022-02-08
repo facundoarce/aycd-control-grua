@@ -71,4 +71,14 @@ K_w = 1800.0;   % [kN/m] rigidez del cable (tracción)
 b_w = 30.0;     % [kN/(m/s)] fricción interna del cable
 
 
-%% ...
+%% Controladores de movimiento
+
+% Controlador de movimiento de traslación del carro
+ba_t = 1;
+Ksa_t = 1;
+Ksia_t = 1;
+
+% Controlador de movimiento de izaje de carga
+ba_h = 1;
+Ksa_h = 1;
+Ksia_h = 1;
