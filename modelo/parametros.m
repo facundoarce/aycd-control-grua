@@ -74,12 +74,28 @@ b_w = 30.0;     % [kN/(m/s)] fricción interna del cable
 
 %% Controladores de movimiento
 
+% Movimiento de traslación del carro
+% Función de transferencia: H_t(s)=V_t(s)/T_mt(s)=(i_t/R_w)/(m_eqt*s+b_eqt)
+s_t = -b_eqt/m_eqt;     % [] polo del subsistema
+w_t = -s_t;             % [] frecuencia natural del subsistema
+
 % Controlador de movimiento de traslación del carro
-ba_t = 1;
-Ksa_t = 1;
-Ksia_t = 1;
+% Método de sintonía serie
+w_pos_t = 5 * w_t;      % [] frecuencia del controlador
+n_t = 2.5;
+ba_t = m_eqt * n_t * w_pos_t;
+Ksa_t = m_eqt * n_t * w_pos_t^2;
+Ksia_t = m_eqt * w_pos_t^3;
+
+% Movimiento de izaje del carro
+% Función de transferencia: H_h(s)=V_h(s)/T_mh(s)=(i_h/R_d)/(J_eqh*s+b_eqh)
+s_h = -b_eqh/J_eqh;     % [] polo del subsistema
+w_h = -s_h;             % [] frecuencia natural del subsistema
 
 % Controlador de movimiento de izaje de carga
-ba_h = 1;
-Ksa_h = 1;
-Ksia_h = 1;
+% Método de sintonía serie
+w_pos_h = 5 * w_h;      % [] frecuencia del controlador
+n_h = 2.5;
+ba_h = J_eqh * n_h * w_pos_h;
+Ksa_h = J_eqh * n_h * w_pos_h^2;
+Ksia_h = J_eqh * w_pos_h^3;
