@@ -20,26 +20,26 @@ x_t0 = -20.0;       % [m] posición inicial
 x_tmin = -30.0;     % [m] posición mínima (sobre muelle)
 x_tmax = 50.0;      % [m] posición máxima (sobre barco)
 x_d_tmax = 4.0;     % [m/s] velocidad máxima (cargado o sin carga)
-x_dd_tmax = 1.0;    % [m/s^2] aceleración máxima (cargado o sin carga)
+x_dd_tmax = 0.8;    % [m/s^2] aceleración máxima (cargado o sin carga)
 
 m_eqt = m_t + ( J_w + i_t^2*J_mt ) / R_w^2;
 
 %% Izaje de carga (eje y, vertical, y=0 al nivel del muelle)
 
 % Parámetros izaje:
-y_min = -20.0;  % [m] posición mínima (dentro de barco)
-y_max = 40.0;   % [m] posición máxima (sobre barco)
-y_t0 = 45.0;    % [m] altura (fija) de carro y sistema de izaje
-y_sb = 15.0;    % [m] despeje mínimo sobre borde de muelle (sill beam)
-y_d_maxn = 1.5; % [m/s] velocidad máxima (cargado con carga nominal)
-y_d_max0 = 3.0; % [m/s] velocidad máxima (sin carga)
-y_dd_max = 1.0; % [m/s^2] aceleración máxima (cargado o sin carga)
-l_0h = 0.0;     % [m] posición inicial (REVISAR NOMBRE)
-R_d = 0.75;     % [m] diámetro de la rueda del tambor
-J_d = 8.0;      % [kg.m^2] momento de inercia del tambor de izaje
-i_h = 30.0;     % [] relación de transmisión de motor de izaje a tambor
-J_mh = 30.0;    % [kg.m^2] momento de inercia del motor de izaje
-b_eqh = 18.0;   % [N.m.s/rad] amortiguamiento viscoso de motor de izaje
+y_min = -20.0;      % [m] posición mínima (dentro de barco)
+y_max = 40.0;       % [m] posición máxima (sobre barco)
+y_t0 = 45.0;        % [m] altura (fija) de carro y sistema de izaje
+y_sb = 15.0;        % [m] despeje mínimo sobre borde de muelle (sill beam)
+y_d_maxn = 1.5;     % [m/s] velocidad máxima (cargado con carga nominal)
+y_d_max0 = 3.0;     % [m/s] velocidad máxima (sin carga)
+y_dd_max = 0.75;    % [m/s^2] aceleración máxima (cargado o sin carga)
+l_0h = 0.0;         % [m] posición inicial (REVISAR NOMBRE)
+R_d = 0.75;         % [m] diámetro de la rueda del tambor
+J_d = 8.0;          % [kg.m^2] momento de inercia del tambor de izaje
+i_h = 30.0;         % [] relación de transmisión de motor de izaje a tambor
+J_mh = 30.0;        % [kg.m^2] momento de inercia del motor de izaje
+b_eqh = 18.0;       % [N.m.s/rad] amortiguamiento viscoso de motor de izaje
 %bd = ?
 %bmh = ?
 
