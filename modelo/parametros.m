@@ -1,5 +1,6 @@
 % CONTROL SEMI-AUTOMÁTICO COORDINADO DE GRÚA PORTUARIA DE MUELLE
 clc;
+clc;
 clear all;
 
 % Parámetros del modelo
