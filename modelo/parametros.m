@@ -5,6 +5,7 @@ clear variables;
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
+H_c = 2.5;          %% [m] alto y ancho de container estándar
 
 % Cable de acero de izaje (parámetros unitarios)
 % w: wirerope | u: unit
@@ -32,8 +33,9 @@ T_hm_max = 2.0e4;   % [N.m] torque máximo de motorización / frenado regenerativo
 % m_h_eq * v_h_dot = F_hm_eq - b_h_eq * v_h - F_hw
 m_h_eq = 2 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);   % [m] masa equivalente del modelo de izaje
 b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);          % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
-% Altura de la carga sin balanceo  ?_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
-y_h0 = 0.0;         % [m] altura inicial del accionamiento de izaje: 0.0 m (sobre el barco/muelle)
+% Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
+y_h0 = H_c;         % [m] altura inicial del accionamiento de izaje: 0.0 m (sobre el barco/muelle)
+% y_h0 = Y_t0 - l_h0;
 
 %% SISTEMA DE TRASLACIÓN DE CARRO
 % Carro y cable de acero de carro
@@ -72,7 +74,7 @@ x_td0 = x_t0;       % [m] posición horizontal inicial del tambor del carro
 %% MOVIMIENTO DE LA CARGA
 % c: container | s: spreader
 g = 9.80665;        %% [m/s^2] aceleración de la gravedad
-H_c = 2.5;          %% [m] alto y ancho de container estándar
+% H_c = 2.5;          %% [m] alto y ancho de container estándar
 M_s = 15000;        %% [kg] masa de spreader + headblock (sin container)
 M_c_max = 50000;    %% [kg] masa de container máxima (totalmente cargado)
 M_c_min = 2000;     %% [kg] masa de container mínima (vacío, sin carga)
@@ -84,47 +86,54 @@ b_cy = 1.0e7;       % [N/(m/s)] fricción por contacto vertical (compresión)
 b_cx = 1.0e6;       % [N/(m/s)] fricción por contacto horizontal (arrastre)
 
 % Estado inicial de la carga
+% l_h0 = 0;
+% y_h0 = Y_t0 - l_h0;
+l_h0 = Y_t0 - y_h0;
 x_l0 = x_t0;        % [m] posición horizontal inicial de la carga (igual a posición inicial del carro sin balanceo)
 y_l0 = y_h0;        % [m] posición vertical inicial de la carga  (igual a altura de la carga sin balanceo)
 
 
-%% Controladores de movimiento
-
-% Movimiento de izaje del carro
-% Función de transferencia: H_h(s)=V_h(s)/T_mh(s)=(i_h/R_d)/(J_eqh*s+b_eqh)
-s_h = -b_eqh/J_eqh;     % [] polo del subsistema
-w_h = -s_h;             % [] frecuencia natural del subsistema
-
-% Controlador de movimiento de izaje de carga
-% Método de sintonía serie
-% tau_hm = 1.0;           % [ms] constante de tiempo de modulador de torque en motor-drive de izaje
-
-
-
-w_pos_h = 5 * w_h;      % [] frecuencia del controlador
-n_h = 2.5;
-ba_h = J_eqh * n_h * w_pos_h;
-Ksa_h = J_eqh * n_h * w_pos_h^2;
-Ksia_h = J_eqh * w_pos_h^3;
 
 
 
 
-% Movimiento de traslación del carro
-% Función de transferencia: H_t(s)=V_t(s)/T_mt(s)=(i_t/R_w)/(m_eqt*s+b_eqt)
-s_t = -b_eqt/m_eqt;     % [] polo del subsistema
-w_t = -s_t;             % [] frecuencia natural del subsistema
+% %% Controladores de movimiento
+% 
+ % % Movimiento de izaje del carro
+% % Función de transferencia: H_h(s)=V_h(s)/T_mh(s)=(i_h/R_d)/(J_eqh*s+b_eqh)
+% s_h = -b_eqh/J_eqh;     % [] polo del subsistema
+% w_h = -s_h;             % [] frecuencia natural del subsistema
+% 
+% % Controlador de movimiento de izaje de carga
+% % Método de sintonía serie
+% % tau_hm = 1.0;           % [ms] constante de tiempo de modulador de torque en motor-drive de izaje
+% 
+% 
+% 
+% w_pos_h = 5 * w_h;      % [] frecuencia del controlador
+% n_h = 2.5;
+% ba_h = J_eqh * n_h * w_pos_h;
+% Ksa_h = J_eqh * n_h * w_pos_h^2;
+% Ksia_h = J_eqh * w_pos_h^3;
+% 
+% 
+% 
+% 
+% % Movimiento de traslación del carro
+% % Función de transferencia: H_t(s)=V_t(s)/T_mt(s)=(i_t/R_w)/(m_eqt*s+b_eqt)
+% s_t = -b_eqt/m_eqt;     % [] polo del subsistema
+% w_t = -s_t;             % [] frecuencia natural del subsistema
+% 
+% % Controlador de movimiento de traslación del carro
+% % Método de sintonía serie
+% w_pos_t = 5 * w_t;      % [] frecuencia del controlador
+% n_t = 2.5;
+% ba_t = m_eqt * n_t * w_pos_t;
+% Ksa_t = m_eqt * n_t * w_pos_t^2;
+% Ksia_t = m_eqt * w_pos_t^3;
 
-% Controlador de movimiento de traslación del carro
-% Método de sintonía serie
-w_pos_t = 5 * w_t;      % [] frecuencia del controlador
-n_t = 2.5;
-ba_t = m_eqt * n_t * w_pos_t;
-Ksa_t = m_eqt * n_t * w_pos_t^2;
-Ksia_t = m_eqt * w_pos_t^3;
 
-
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % %% Traslación del carro (eje x, horizontal, x=0 en borde del muelle)
 % 
