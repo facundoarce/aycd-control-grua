@@ -37,6 +37,25 @@ b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);          % [N/(m/s)] coeficiente 
 y_h0 = H_c;         % [m] altura inicial del accionamiento de izaje: 0.0 m (sobre el barco/muelle)
 % y_h0 = Y_t0 - l_h0;
 
+% Posición de fines de carrera de izaje (rotativos en tambor)
+y_h_min_oper = -20.0;   % [m] límite de operación mínimo (dentro del barco)
+y_h_max_oper = 40.0;    % [m] límite de operación máximo (sobre barco/muelle)
+y_h_min_emer = y_h_min_oper - 1.0;   % [m] límite de emergencia mínimo
+y_h_max_emer = y_h_max_oper + 1.0;   % [m] límite de emergencia máximo
+
+% theta_hd_min_oper = -2*(Y_t0 - y_h_min_oper)/r_hd;   % [rad] límite de operación mínimo (rotativos en tambor)
+% theta_hd_max_oper = -2*(Y_t0 - y_h_max_oper)/r_hd;   % [rad] límite de operación máximo (rotativos en tambor)
+% theta_hd_min_emer = -2*(Y_t0 - y_h_min_emer)/r_hd;   % [rad] límite de emergencia mínimo (rotativos en tambor)
+% theta_hd_max_emer = -2*(Y_t0 - y_h_max_emer)/r_hd;   % [rad] límite de emergencia máximo (rotativos en tambor)
+
+% Velocidad máxima de izaje (Fig. 5)
+v_h_nom = 1.5;      % [m/s] velocidad de izaje máxima para carga suspendida nominal m_l_nom = 65000 kg
+v_h_max = 3.0;      % [m/s] velocidad de izaje máxima para carga suspendida m_l_0 = 15000 kg a m_l_max@v_h_max = 32500 kg
+P_h_nom = 956150;   % [W] Potencia nominal de izaje (constante) entre v_h_nom y v_h_max
+% P_h_nom = m_l * g * v_h => v_h = P_h_nom / ( m_l * g ) 
+% Ejemplo: v_h(32500) = 956150 / ( 32500 * 9.80665 ) = 3.0 = v_h_max
+%          v_h(65000) = 956150 / ( 65000 * 9.80665 ) = 1.5 = v_h_nom
+
 %% SISTEMA DE TRASLACIÓN DE CARRO
 % Carro y cable de acero de carro
 % t: trolley | w: wirerope
@@ -47,6 +66,12 @@ b_tw = 3.0e3;       % [N/(m/s)] fricción interna o amortiguamiento de cable tens
 
 % Posición horizontal del carro  x_t : [-30.0 (sobre muelle) … 0.0 … (sobre barco) +50.0] m
 x_t0 = -30.0;       % [m] posición horizontal inicial del carro (sobre muelle)
+
+% Posición de fines de carrera de traslación del carro (fijos sobre viga)
+x_t_min_oper = -30.0;   % [m] límite de operación mínimo (sobre muelle)
+x_t_max_oper = 50.0;    % [m] límite de operación máximo (sobre barco)
+x_t_min_emer = x_t_min_oper - 1.0;   % [m] límite de emergencia mínimo
+x_t_max_emer = x_t_max_oper + 1.0;   % [m] límite de emergencia máximo
 
 % Accionamiento de traslación de carro
 % t: trolley | td: trolley drum? | tm: trolley motor | tb: trolley break |
