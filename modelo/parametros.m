@@ -103,6 +103,7 @@ g = 9.80665;        %% [m/s^2] aceleración de la gravedad
 M_s = 15000;        %% [kg] masa de spreader + headblock (sin container)
 M_c_max = 50000;    %% [kg] masa de container máxima (totalmente cargado)
 M_c_min = 2000;     %% [kg] masa de container mínima (vacío, sin carga)
+overload = false;   % [bool] condición de sobrecarga para simulación. Setear en "true" para simular M_cx > M_c_max
 
 % Parámetros de contacto para carga apoyada
 % c: contact
