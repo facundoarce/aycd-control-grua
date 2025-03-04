@@ -2,3 +2,6 @@ parametros.asv
 slprj
 resources
 temp
+*.slxc
+*.mexw64
+*.gif
