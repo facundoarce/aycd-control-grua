@@ -2,6 +2,9 @@
 % Autores: Arce Facundo, Cantaloube Adrián
 clc;
 clear variables;
+T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (control regulatorio)
+T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control regulatorio)
+T_s2 = 5/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
@@ -26,8 +29,22 @@ J_hm_hb = 30.0;     % [kg.m^2] momento de inercia equivalente de eje rápido
 b_hm = 18.0;        % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equivalente del eje rápido
 b_hb = 1.0e8;       % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equivalente del freno de operación
 T_hb_max = 5.0e4;   % [N.m] torque máximo de frenado del freno de operación
+
+% Velocidad máxima de izaje (Fig. 5)
+v_h_nom = 1.5;      % [m/s] velocidad de izaje máxima para carga suspendida nominal m_l_nom = 65000 kg
+v_h_max = 3.0;      % [m/s] velocidad de izaje máxima para carga suspendida m_l_0 = 15000 kg a m_l_max@v_h_max = 32500 kg
+P_h_nom = 956150;   % [W] Potencia nominal de izaje (constante) entre v_h_nom y v_h_max
+% P_h_nom = m_l * g * v_h => v_h = P_h_nom / ( m_l * g ) 
+% Ejemplo: v_h(32500) = 956150 / ( 32500 * 9.80665 ) = 3.0 = v_h_max
+%          v_h(65000) = 956150 / ( 65000 * 9.80665 ) = 1.5 = v_h_nom
+
+% Modulador de torque en motor-drive de izaje con limitador de torque máx.
 tau_hm = 1.0;       % [ms] constante de tiempo de modulador de torque
-T_hm_max = 2.0e4;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
+T_hm_MAX = 2.0e4;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
+% (Ec 3b) 2 * v_h(t) = r_hd * w_hd(t)
+% (Ec 3d) w_h(t) * i_h = w_hm(t)
+% => w_hm = 2 * i_h / r_hd * v_h(t)
+w_hm_rated = 2 * i_h / r_hd * v_h_nom;  % [rad/s] velocidad del motor de izaje equivalente para velocidad de izaje nominal
 
 % Modelo de izaje equivalente
 % m_h_eq * v_h_dot = F_hm_eq - b_h_eq * v_h - F_hw
@@ -48,13 +65,6 @@ y_h_max_emer = y_h_max_oper + 1.0;   % [m] límite de emergencia máximo
 % theta_hd_min_emer = -2*(Y_t0 - y_h_min_emer)/r_hd;   % [rad] límite de emergencia mínimo (rotativos en tambor)
 % theta_hd_max_emer = -2*(Y_t0 - y_h_max_emer)/r_hd;   % [rad] límite de emergencia máximo (rotativos en tambor)
 
-% Velocidad máxima de izaje (Fig. 5)
-v_h_nom = 1.5;      % [m/s] velocidad de izaje máxima para carga suspendida nominal m_l_nom = 65000 kg
-v_h_max = 3.0;      % [m/s] velocidad de izaje máxima para carga suspendida m_l_0 = 15000 kg a m_l_max@v_h_max = 32500 kg
-P_h_nom = 956150;   % [W] Potencia nominal de izaje (constante) entre v_h_nom y v_h_max
-% P_h_nom = m_l * g * v_h => v_h = P_h_nom / ( m_l * g ) 
-% Ejemplo: v_h(32500) = 956150 / ( 32500 * 9.80665 ) = 3.0 = v_h_max
-%          v_h(65000) = 956150 / ( 65000 * 9.80665 ) = 1.5 = v_h_nom
 
 %% SISTEMA DE TRASLACIÓN DE CARRO
 % Carro y cable de acero de carro
