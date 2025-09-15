@@ -4,16 +4,19 @@ clc;
 clear variables;
 T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (control regulatorio)
 T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control regulatorio)
-T_s2 = 5/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
+T_s2 = 1/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
-H_c = 2.5;          %% [m] alto y ancho de container estándar
+Y_sb = 5.0;         % [m] despeje mínimo sobre borde de muelle
+H_c = 2.59;         % [m] alto de container estándar
+W_c = 2.44;         % [m] ancho de container estándar
 
 % Cable de acero de izaje (parámetros unitarios)
 % w: wirerope | u: unit
 k_wu = 2.36e8;      % [(N/m).m] rigidez unitaria de izaje (tracción)
 b_wu = 150;         % [(N/(m/s))/m] fricción unitaria de izaje (tracción)
+L_h0 = 110;         % [m] longitud de despliegue fijo de wirerope de izaje
 
 % Accionamiento de sistema de izaje
 % h: hoist | hd: | hEb: hoist emergency break | hm: hoist motor | hb: hoist break |
@@ -96,7 +99,7 @@ b_tm = 6.0;         % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equ
 b_tb = 5.0e6;       % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equivalente del freno de operación
 T_tb_max = 5.0e3;   % [N.m] torque máximo de frenado del freno de operación
 tau_tm = 1.0;       % [ms] constante de tiempo de modulador de torque
-T_tm_max = 3.0e3;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
+T_tm_max = 4.0e3;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
 
 % Modelo de traslación equivalente
 % Modelo equivalente del tambor
