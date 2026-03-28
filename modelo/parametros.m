@@ -2,15 +2,17 @@
 % Autores: Arce Facundo, Cantaloube Adrián
 clc;
 clear variables;
-T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (control regulatorio)
-T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control regulatorio)
+T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (control de seguridad)
+T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control supervisor)
 T_s2 = 1/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
 Y_sb = 5.0;         % [m] despeje mínimo sobre borde de muelle
-H_c = 2.59;         % [m] alto de container estándar
-W_c = 2.44;         % [m] ancho de container estándar
+H_c = Simulink.Parameter(2.59);  % [m] alto de container estándar
+H_c.CoderInfo.StorageClass = 'SimulinkGlobal';
+W_c = Simulink.Parameter(2.44);  % [m] ancho de container estándar
+W_c.CoderInfo.StorageClass = 'SimulinkGlobal';
 
 % Cable de acero de izaje (parámetros unitarios)
 % w: wirerope | u: unit
@@ -44,47 +46,52 @@ P_h_nom = 956150;   % [W] Potencia nominal de izaje (constante) entre v_h_nom y 
 % Modulador de torque en motor-drive de izaje con limitador de torque máx.
 tau_hm = 1.0;       % [ms] constante de tiempo de modulador de torque
 T_hm_MAX = 2.0e4;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
-% (Ec 3b) 2 * v_h(t) = r_hd * w_hd(t)
-% (Ec 3d) w_h(t) * i_h = w_hm(t)
-% => w_hm = 2 * i_h / r_hd * v_h(t)
-w_hm_rated = 2 * i_h / r_hd * v_h_nom;  % [rad/s] velocidad del motor de izaje equivalente para velocidad de izaje nominal
-
-% Modelo de izaje equivalente
-% m_h_eq * v_h_dot = F_hm_eq - b_h_eq * v_h - F_hw
-m_h_eq = 2 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);   % [m] masa equivalente del modelo de izaje
-b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);          % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
-% Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
-y_h0 = H_c;         % [m] altura inicial del accionamiento de izaje: 0.0 m (sobre el barco/muelle)
-% y_h0 = Y_t0 - l_h0;
+% (Ec 6.b) 2 * v_h(t) = r_hd * w_hd(t)
+% (Ec 6.d) w_hd(t) * i_h = w_hm(t)
+% => w_hm = 2 * (i_h / r_hd) * v_h(t)
+w_hm_rated = 2 * (i_h / r_hd) * v_h_nom;  % [rad/s] velocidad del motor de izaje equivalente para velocidad de izaje nominal
 
 % Posición de fines de carrera de izaje (rotativos en tambor)
-y_h_min_oper = -20.0;   % [m] límite de operación mínimo (dentro del barco)
-y_h_max_oper = 40.0;    % [m] límite de operación máximo (sobre barco/muelle)
-y_h_min_emer = y_h_min_oper - 1.0;   % [m] límite de emergencia mínimo
-y_h_max_emer = y_h_max_oper + 1.0;   % [m] límite de emergencia máximo
+y_h_min_oper = Simulink.Parameter(-20.0);  % [m] límite de operación mínimo (dentro del barco)
+y_h_min_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
+y_h_max_oper = Simulink.Parameter(40.0);   % [m] límite de operación máximo (sobre barco/muelle)
+y_h_max_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
+y_h_min_emer = y_h_min_oper.Value - 1.0;   % [m] límite de emergencia mínimo
+y_h_max_emer = y_h_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
 
 % theta_hd_min_oper = -2*(Y_t0 - y_h_min_oper)/r_hd;   % [rad] límite de operación mínimo (rotativos en tambor)
 % theta_hd_max_oper = -2*(Y_t0 - y_h_max_oper)/r_hd;   % [rad] límite de operación máximo (rotativos en tambor)
 % theta_hd_min_emer = -2*(Y_t0 - y_h_min_emer)/r_hd;   % [rad] límite de emergencia mínimo (rotativos en tambor)
 % theta_hd_max_emer = -2*(Y_t0 - y_h_max_emer)/r_hd;   % [rad] límite de emergencia máximo (rotativos en tambor)
 
+% Modelo de izaje equivalente
+% m_h_eq * h_h_ddot = F_h_eq - b_h_eq * l_h_dot - F_hw
+m_h_eq = 2 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);  % [m] masa equivalente del modelo de izaje
+b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);         % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
+% Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
+y_h0 = y_h_min_oper.Value + H_c.Value;  % [m] altura inicial del accionamiento de izaje: 0.0 m (sobre el barco/muelle)
+% y_h0 = Y_t0 - l_h0;
+
 
 %% SISTEMA DE TRASLACIÓN DE CARRO
 % Carro y cable de acero de carro
 % t: trolley | w: wirerope
-M_t = 30000;        % [kg] masa equivalente de carro
+M_t = Simulink.Parameter(30000);   % [kg] masa equivalente de carro
+M_t.CoderInfo.StorageClass = 'SimulinkGlobal';
 b_t = 90.0;         % [N/(m/s)] coeficiente de fricción mecánica viscosa equivalente de carro
 K_tw = 4.8e5;       % [N/m] rigidez equivalente total a tracción de cable tensado de carro
 b_tw = 3.0e3;       % [N/(m/s)] fricción interna o amortiguamiento de cable tensado de carro
 
 % Posición horizontal del carro  x_t : [-30.0 (sobre muelle) … 0.0 … (sobre barco) +50.0] m
-x_t0 = -30.0;       % [m] posición horizontal inicial del carro (sobre muelle)
+x_t0 = 0.0;         % [m] posición horizontal inicial del carro (sobre barco)
 
 % Posición de fines de carrera de traslación del carro (fijos sobre viga)
-x_t_min_oper = -30.0;   % [m] límite de operación mínimo (sobre muelle)
-x_t_max_oper = 50.0;    % [m] límite de operación máximo (sobre barco)
-x_t_min_emer = x_t_min_oper - 1.0;   % [m] límite de emergencia mínimo
-x_t_max_emer = x_t_max_oper + 1.0;   % [m] límite de emergencia máximo
+x_t_min_oper = Simulink.Parameter(-30.0);  % [m] límite de operación mínimo (sobre muelle)
+x_t_min_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
+x_t_max_oper = Simulink.Parameter(50.0);   % [m] límite de operación máximo (sobre barco)
+x_t_max_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
+x_t_min_emer = x_t_min_oper.Value - 1.0;   % [m] límite de emergencia mínimo
+x_t_max_emer = x_t_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
 
 % Accionamiento de traslación de carro
 % t: trolley | td: trolley drum? | tm: trolley motor | tb: trolley break |
@@ -102,17 +109,25 @@ tau_tm = 1.0;       % [ms] constante de tiempo de modulador de torque
 T_tm_max = 4.0e3;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
 
 % Modelo de traslación equivalente
-% Modelo equivalente del tambor
+% Referido al sistema de referencia del tambor del carro
 % m_td_eq * v_td_dot = F_tdm_eq - b_td_eq * v_td - F_tw
-m_td_eq = ( J_td + i_t^2*J_tm_tb ) / (r_td^2);    % [m] masa equivalente del modelo de traslación del tambor del carro
-b_td_eq = ( b_td + i_t^2*b_tm ) / (r_td^2);       % [N/(m/s)] coeficiente de fricción equivalente del tambor del carro
+m_td_eq = ( J_td + i_t^2*J_tm_tb ) / (r_td^2);   % [m] masa equivalente del modelo de traslación del tambor del carro
+b_td_eq = ( b_td + i_t^2*b_tm ) / (r_td^2);      % [N/(m/s)] coeficiente de fricción equivalente del tambor del carro
 x_td0 = x_t0;       % [m] posición horizontal inicial del tambor del carro
+
+% Modelo de traslación equivalente
+% Referido al sistema de referencia del carro
+% m_t_eq * x_t_ddot = F_td_eq - b_t_eq * x_t_dot - F_tl_eq
+m_t_eq = M_t.Value + ( J_td + i_t^2*J_tm_tb ) / (r_td^2);  % [m] masa equivalente del modelo de traslación del carro
+b_t_eq = b_t + ( b_td + i_t^2*b_tm ) / (r_td^2);           % [N/(m/s)] coeficiente de fricción equivalente del carro
+b_t_eq = Simulink.Parameter(b_t_eq);
+b_t_eq.CoderInfo.StorageClass = 'SimulinkGlobal';
 
 
 %% MOVIMIENTO DE LA CARGA
 % c: container | s: spreader
-g = 9.80665;        %% [m/s^2] aceleración de la gravedad
-% H_c = 2.5;          %% [m] alto y ancho de container estándar
+g = Simulink.Parameter(9.80665);  %% [m/s^2] aceleración de la gravedad
+g.CoderInfo.StorageClass = 'SimulinkGlobal';
 M_s = 15000;        %% [kg] masa de spreader + headblock (sin container)
 M_c_max = 50000;    %% [kg] masa de container máxima (totalmente cargado)
 M_c_min = 2000;     %% [kg] masa de container mínima (vacío, sin carga)
@@ -131,19 +146,96 @@ l_h0 = Y_t0 - y_h0;
 x_l0 = x_t0;        % [m] posición horizontal inicial de la carga (igual a posición inicial del carro sin balanceo)
 y_l0 = y_h0;        % [m] posición vertical inicial de la carga  (igual a altura de la carga sin balanceo)
 
+% Frecuencia natural de balanceo de la carga
+% w_n_theta = sqrt(g/l_h)
+% Frecuencia más baja se da en caso l_h_max
+l_h_max = Y_t0 - y_h_min_oper.Value;
+w_n_theta_min = sqrt(g.Value/l_h_max);
 
 
+%% CONTROLADORES DE MOVIMIENTO
+
+% ==================== Control de traslación del carro ====================
+
+% Movimiento de traslación del carro
+% Función de transferencia: H_t(s)=V_t(s)/F_t_eq(s)=1/(m_t_eq*s+b_t_eq)
+p_t = -b_t_eq.Value/m_t_eq;  % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
+
+% Sistema deseado a lazo cerrado de movimiento de traslación del carro
+w_tc = 0.7 * w_n_theta_min;   % [1/s] frecuencia deseada del subsistema a lazo cerrado
+xi_tc = 0.8;        % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
+p3_tc = 5 * w_tc;   % [-] Tercer polo a lazo cerrado
+
+% Ganancias del controlador PID de movimiento de traslación del carro
+K_d_t = 2*m_t_eq*xi_tc*w_tc + m_t_eq*p3_tc - b_t_eq.Value;  % [-] ganancia derivativa del controlador PID
+K_p_t = m_t_eq*w_tc^2 + 2*m_t_eq*xi_tc*w_tc*p3_tc;  % [-] ganancia proporcional del controlador PID
+K_i_t = m_t_eq*p3_tc*w_tc^2;  % [-] ganancia integral del controlador PID
 
 
+% ===================== Control de izaje de la carga ======================
 
-% %% Controladores de movimiento
+% % Movimiento de izaje del carro
+% % Función de transferencia: H_h(s)=L_h(s)/F_h_eq_total(s)=1/(m_h_eq*s^2+b_h_eq*s)
+% p_ol = b_h_eq/m_h_eq;
+% s_h = -p_ol;   % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
 % 
- % % Movimiento de izaje del carro
-% % Función de transferencia: H_h(s)=V_h(s)/T_mh(s)=(i_h/R_d)/(J_eqh*s+b_eqh)
-% s_h = -b_eqh/J_eqh;     % [] polo del subsistema
-% w_h = -s_h;             % [] frecuencia natural del subsistema
+% % Sistema deseado a lazo cerrado de movimiento de izaje de la carga
+% sigma_cl = 0.7 * p_ol;    % [-] Parte real de polos dominantes 1 y 2 a lazo cerrado
+% omega_cl = 0;             % [-] Parte imaginaria de polos dominantes 1 y 2 a lazo cerrado
+% p3_h_cl = 10 * sigma_cl;  % [-] Parte real de polo 3 no dominante a lazo cerrado
 % 
-% % Controlador de movimiento de izaje de carga
+% % Ganancias del controlador PID de izaje de la carga
+% K_d_h = m_h_eq*(2*sigma_cl+p3_h_cl) - b_h_eq;  % [-] ganancia derivativa del controlador PID
+% K_p_h = m_h_eq*(sigma_cl^2 + omega_cl^2 + 2*p3_h_cl*sigma_cl);  % [-] ganancia proporcional del controlador PID
+% K_i_h = m_h_eq*(sigma_cl^2 + omega_cl^2)*p3_h_cl;  % [-] ganancia integral del controlador PID
+
+
+% Función de transferencia: H_h(s)=L_h(s)/F_h_eq_total(s)=1/(m_h_eq*s^2+b_h_eq*s)
+p_h = b_h_eq/m_h_eq;
+s_h = -p_h;   % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
+
+% Sistema deseado a lazo cerrado de movimiento de izaje de la carga
+xi_hc = 0.7;               % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
+w_hc = 0.5 * p_h / xi_hc;  % [1/s] frecuencia deseada del subsistema a lazo cerrado
+p3_hc = 10 * w_hc;         % [-] Tercer polo a lazo cerrado
+
+% Ganancias del controlador PID de izaje de la carga
+K_d_h = 2*m_h_eq*xi_hc*w_hc + m_h_eq*p3_hc - b_h_eq;  % [-] ganancia derivativa del controlador PID
+K_p_h = m_h_eq*w_hc^2 + 2*m_h_eq*xi_hc*w_hc*p3_hc;  % [-] ganancia proporcional del controlador PID
+K_i_h = m_h_eq*p3_hc*w_hc^2;  % [-] ganancia integral del controlador PID
+
+
+% ==================== Control de balanceo de la carga ====================
+% th: theta (relacionado a balanceo de la carga)
+
+% Controlador de balanceo de la carga
+% w_c_th = k_w_c_th * w_n_th
+% w_c_th: frecuencia natural deseada del subsistema a lazo cerrado
+% w_n_th: frecuencia natural del subsistema físico a lazo abierto
+k_w_c_th = 0.7; % [-] factor de frecuencia natural deseada del subsistema a lazo cerrado
+% p3_th = k_p3_th * w_c_th
+% p3_th: tercer polo del susbsistema a lazo cerrado
+k_p3_th = 3;    % [-] factor del tercer polo a lazo cerrado
+xi_c_th = 0.7;  % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
+k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre actuación del carro
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Función de transferencia: H_t(s)=V_t(s)/F_t_eq(s)=1/(m_t_eq*s+b_t_eq)
+% p_t = -b_t_eq/m_t_eq;     % [1/s] polo del subsistema (negativo: sistema estable)
+% w_tn = -p_t;                % [1/s] frecuencia natural del subsistema a lazo abierto
+% 
+% %% Borrar [N/(m/s)] / kg = N * s / (m * kg), N = kg * m / s^2 => kg * m / s = N * s
+% %% N * s / (m * kg) = N * (1/(N*s)) = 1/s
+
+
 % % Método de sintonía serie
 % % tau_hm = 1.0;           % [ms] constante de tiempo de modulador de torque en motor-drive de izaje
 % 
