@@ -68,8 +68,11 @@ y_h_max_emer = y_h_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
 % m_h_eq * h_h_ddot = F_h_eq - b_h_eq * l_h_dot - F_hw
 m_h_eq = 2 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);  % [m] masa equivalente del modelo de izaje
 b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);         % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
+% Perfil de obstáculos
+y_c0_0 = Simulink.Parameter(y_h_min_oper.Value + H_c.Value); % [m] altura inicial del perfil de obstáculos (con una fila de containers sobre todo el barco) 
+y_c0_0.CoderInfo.StorageClass = 'SimulinkGlobal';
 % Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
-y_h0 = y_h_min_oper.Value + H_c.Value;  % [m] altura inicial del accionamiento de izaje: 0.0 m (sobre el barco/muelle)
+y_h0 = y_c0_0.Value;  % + H_c.Value; % [m] altura inicial del accionamiento de izaje: apoyado sobre perfil de obstáculos
 % y_h0 = Y_t0 - l_h0;
 
 
@@ -142,6 +145,7 @@ b_cx = 1.0e6;       % [N/(m/s)] fricción por contacto horizontal (arrastre)
 % Estado inicial de la carga
 % l_h0 = 0;
 % y_h0 = Y_t0 - l_h0;
+% y_h0 = H_c.Value;
 l_h0 = Y_t0 - y_h0;
 x_l0 = x_t0;        % [m] posición horizontal inicial de la carga (igual a posición inicial del carro sin balanceo)
 y_l0 = y_h0;        % [m] posición vertical inicial de la carga  (igual a altura de la carga sin balanceo)
@@ -222,9 +226,53 @@ k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre 
 
 
 
+%%%%%%%%%%%%%%%%%%
+%% Bus creation
+% Sensor bus
+sensor_elem(1) = Simulink.BusElement;
+sensor_elem(1).Name = 'x_t_dot';
+sensor_elem(1).DataType = 'double';
 
+sensor_elem(2) = Simulink.BusElement;
+sensor_elem(2).Name = 'l_h';
+sensor_elem(2).DataType = 'double';
 
+sensor_elem(3) = Simulink.BusElement;
+sensor_elem(3).Name = 'l_h_dot';
+sensor_elem(3).DataType = 'double';
 
+sensor_elem(4) = Simulink.BusElement;
+sensor_elem(4).Name = 'theta_l';
+sensor_elem(4).DataType = 'double';
+
+sensor_elem(5) = Simulink.BusElement;
+sensor_elem(5).Name = 'theta_l_dot';
+sensor_elem(5).DataType = 'double';
+
+sensor_elem(6) = Simulink.BusElement;
+sensor_elem(6).Name = 'F_hw';
+sensor_elem(6).DataType = 'double';
+
+command_bus = Simulink.Bus;
+command_bus.Elements = sensor_elem;
+assignin('base', 'sensor_bus', command_bus);
+
+% Command bus
+command_elem(1) = Simulink.BusElement;
+command_elem(1).Name = 'translation';
+command_elem(1).DataType = 'double';
+
+command_elem(2) = Simulink.BusElement;
+command_elem(2).Name = 'hoist';
+command_elem(2).DataType = 'double';
+
+command_elem(3) = Simulink.BusElement;
+command_elem(3).Name = 'TLK';
+command_elem(3).DataType = 'boolean';
+
+command_bus = Simulink.Bus;
+command_bus.Elements = command_elem;
+assignin('base', 'command_bus', command_bus);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
