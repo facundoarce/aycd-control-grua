@@ -35,13 +35,16 @@ b_hm = 18.0;        % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equ
 b_hb = 1.0e8;       % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equivalente del freno de operación
 T_hb_max = 5.0e4;   % [N.m] torque máximo de frenado del freno de operación
 
-% Velocidad máxima de izaje (Fig. 5)
+% Velocidad de izaje nominal y máxima (Fig. 5)
 v_h_nom = 1.5;      % [m/s] velocidad de izaje máxima para carga suspendida nominal m_l_nom = 65000 kg
 v_h_max = 3.0;      % [m/s] velocidad de izaje máxima para carga suspendida m_l_0 = 15000 kg a m_l_max@v_h_max = 32500 kg
 P_h_nom = 956150;   % [W] Potencia nominal de izaje (constante) entre v_h_nom y v_h_max
 % P_h_nom = m_l * g * v_h => v_h = P_h_nom / ( m_l * g ) 
 % Ejemplo: v_h(32500) = 956150 / ( 32500 * 9.80665 ) = 3.0 = v_h_max
 %          v_h(65000) = 956150 / ( 65000 * 9.80665 ) = 1.5 = v_h_nom
+
+% Aceleración de izaje máxima
+a_h_max = 0.75;  % [m/s^2] aceleración de izaje máxima (cargado o sin carga)
 
 % Modulador de torque en motor-drive de izaje con limitador de torque máx.
 tau_hm = 1.0;       % [ms] constante de tiempo de modulador de torque
@@ -68,13 +71,6 @@ y_h_max_emer = y_h_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
 % m_h_eq * h_h_ddot = F_h_eq - b_h_eq * l_h_dot - F_hw
 m_h_eq = 2 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);  % [m] masa equivalente del modelo de izaje
 b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);         % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
-% Perfil de obstáculos
-y_c0_0 = Simulink.Parameter(y_h_min_oper.Value + H_c.Value); % [m] altura inicial del perfil de obstáculos (con una fila de containers sobre todo el barco) 
-y_c0_0.CoderInfo.StorageClass = 'SimulinkGlobal';
-% Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
-y_h0 = y_c0_0.Value;  % + H_c.Value; % [m] altura inicial del accionamiento de izaje: apoyado sobre perfil de obstáculos
-% y_h0 = Y_t0 - l_h0;
-
 
 %% SISTEMA DE TRASLACIÓN DE CARRO
 % Carro y cable de acero de carro
@@ -86,7 +82,7 @@ K_tw = 4.8e5;       % [N/m] rigidez equivalente total a tracción de cable tensad
 b_tw = 3.0e3;       % [N/(m/s)] fricción interna o amortiguamiento de cable tensado de carro
 
 % Posición horizontal del carro  x_t : [-30.0 (sobre muelle) … 0.0 … (sobre barco) +50.0] m
-x_t0 = 0.0;         % [m] posición horizontal inicial del carro (sobre barco)
+x_t0 = W_c.Value / 2; % [m] posición horizontal inicial del carro (sobre barco)
 
 % Posición de fines de carrera de traslación del carro (fijos sobre viga)
 x_t_min_oper = Simulink.Parameter(-30.0);  % [m] límite de operación mínimo (sobre muelle)
@@ -95,6 +91,10 @@ x_t_max_oper = Simulink.Parameter(50.0);   % [m] límite de operación máximo (sob
 x_t_max_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
 x_t_min_emer = x_t_min_oper.Value - 1.0;   % [m] límite de emergencia mínimo
 x_t_max_emer = x_t_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
+
+% Velocidad y aceleración máximas
+v_t_max = 4.0;  % [m/s] velocidad de traslación máxima (cargado o sin carga)
+a_t_max = 0.8;  % [m/s^2] aceleración de traslación máxima (cargado o sin carga)
 
 % Accionamiento de traslación de carro
 % t: trolley | td: trolley drum? | tm: trolley motor | tb: trolley break |
@@ -125,6 +125,21 @@ m_t_eq = M_t.Value + ( J_td + i_t^2*J_tm_tb ) / (r_td^2);  % [m] masa equivalent
 b_t_eq = b_t + ( b_td + i_t^2*b_tm ) / (r_td^2);           % [N/(m/s)] coeficiente de fricción equivalente del carro
 b_t_eq = Simulink.Parameter(b_t_eq);
 b_t_eq.CoderInfo.StorageClass = 'SimulinkGlobal';
+
+%% Perfil de obstáculos
+% Número de slots que caben en el rango de operación
+N_slots = Simulink.Parameter(floor((x_t_max_oper.Value - x_t_min_oper.Value) / W_c.Value));
+N_slots.CoderInfo.StorageClass = 'SimulinkGlobal';
+random_obstacles = false;  % si true, inicializa perfil de obstáculos con contenedores aleatoreos
+y_c0_quay = 0;    % [m] altura base del muelle
+y_c0_ship = -20;  % [m] altura base dentro del barco
+y_c0_0 = Simulink.Parameter(y_c0_ship); % [m] altura inicial del perfil de obstáculos (con una fila de containers sobre todo el barco) 
+y_c0_0.CoderInfo.StorageClass = 'SimulinkGlobal';
+% Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
+y_h0 = y_c0_0.Value;  % + H_c.Value; % [m] altura inicial del accionamiento de izaje: apoyado sobre perfil de obstáculos
+% y_h0 = Y_t0 - l_h0;
+clearance_min = 2;  % [m] distancia de despeje mínima entre perfil de obstáculos y carga
+
 
 
 %% MOVIMIENTO DE LA CARGA
@@ -223,11 +238,9 @@ k_p3_th = 3;    % [-] factor del tercer polo a lazo cerrado
 xi_c_th = 0.7;  % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
 k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre actuación del carro
 
+%% CONTROLADORES DE MOVIMIENTO
 
-
-
-%%%%%%%%%%%%%%%%%%
-%% Bus creation
+% =========================== Creación de buses ===========================
 % Sensor bus
 sensor_elem(1) = Simulink.BusElement;
 sensor_elem(1).Name = 'x_t_dot';
@@ -273,6 +286,14 @@ command_elem(3).DataType = 'boolean';
 command_bus = Simulink.Bus;
 command_bus.Elements = command_elem;
 assignin('base', 'command_bus', command_bus);
+
+% =================== Parámetros de control supervisor ====================
+l_h_tol = 1.0;        % [m] tolerancia llegada a l_h_peak
+l_h_man_thresh = 1.0; % [m] umbral zona manual izaje
+x_t_man_thresh = 1.0; % [m] umbral zona manual traslación
+
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
