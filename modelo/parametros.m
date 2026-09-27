@@ -53,6 +53,7 @@ T_hm_MAX = 2.0e4;   % [N.m] torque máximo de motorización / frenado regenerativo
 % (Ec 6.d) w_hd(t) * i_h = w_hm(t)
 % => w_hm = 2 * (i_h / r_hd) * v_h(t)
 w_hm_rated = 2 * (i_h / r_hd) * v_h_nom;  % [rad/s] velocidad del motor de izaje equivalente para velocidad de izaje nominal
+eps_w_hm = 0.1;     % [rad/s] epsilon de velocidad del motor de izaje para evitar división por cero
 
 % Posición de fines de carrera de izaje (rotativos en tambor)
 y_h_min_oper = Simulink.Parameter(-20.0);  % [m] límite de operación mínimo (dentro del barco)
