@@ -128,20 +128,43 @@ b_t_eq = Simulink.Parameter(b_t_eq);
 b_t_eq.CoderInfo.StorageClass = 'SimulinkGlobal';
 
 %% Perfil de obstáculos
-% Número de slots que caben en el rango de operación
-N_slots = Simulink.Parameter(floor((x_t_max_oper.Value - x_t_min_oper.Value) / W_c.Value));
+% Grilla de slots de ancho W_c alineada con x = 0 (borde muelle/barco), de modo que ningún slot quede repartido entre muelle y barco
+x_slot0 = Simulink.Parameter(-ceil(-x_t_min_oper.Value / W_c.Value) * W_c.Value);  % [m] borde izquierdo del primer slot (<= x_t_min_oper)
+x_slot0.CoderInfo.StorageClass = 'SimulinkGlobal';
+
+% Número de slots necesarios para cubrir el rango de operación
+N_slots = Simulink.Parameter(ceil((x_t_max_oper.Value - x_slot0.Value) / W_c.Value));
 N_slots.CoderInfo.StorageClass = 'SimulinkGlobal';
-random_obstacles = false;  % si true, inicializa perfil de obstáculos con contenedores aleatoreos
+
+% Valores iniciales sin ningún contenedor
 y_c0_quay = 0;    % [m] altura base del muelle
 y_c0_ship = -20;  % [m] altura base dentro del barco
-y_c0_0 = Simulink.Parameter(y_c0_ship); % [m] altura inicial del perfil de obstáculos (con una fila de containers sobre todo el barco) 
+
+% Vector inicial del perfil de obstáculos (dividido en slots)
+x_slots = x_slot0.Value + ((0:N_slots.Value-1) + 0.5) * W_c.Value;  % [m] centro de cada slot (evita ambigüedad numérica en x = 0)
+y_c0_ini = zeros(1, N_slots.Value);
+y_c0_ini(x_slots <  0) = y_c0_quay;  % altura base lado muelle (x < 0)
+y_c0_ini(x_slots >= 0) = y_c0_ship;  % altura base lado barco  (x >= 0)
+random_obstacles = false;  % si true, inicializa perfil de obstáculos con contenedores aleatoreos
+if random_obstacles
+    n_max_stack = 10; % Número aleatorio de contenedores apilados por slot (0 a 10)
+    y_c0_ini = y_c0_ini + randi([0, n_max_stack], 1, N_slots.Value) * H_c.Value;
+else
+    y_c0_ini = y_c0_ini + ones(1, N_slots.Value) * H_c.Value; % al menos un contenedor en cada slot
+end
+y_c0_0 = Simulink.Parameter(y_c0_ini);  % [m] perfil de obstáculos inicial (vector de N_slots elementos)
 y_c0_0.CoderInfo.StorageClass = 'SimulinkGlobal';
+
+% Altura del perfil de obstáculos en la posición inicial del carro
+slot_x_t0 = floor((x_t0 - x_slot0.Value) / W_c.Value) + 1;
+y_c0_x_l0 = Simulink.Parameter(y_c0_0.Value(slot_x_t0));  % [m]
+y_c0_x_l0.CoderInfo.StorageClass = 'SimulinkGlobal';
+
 % Altura de la carga sin balanceo  y_h = Y_t0 - l_h : [-20.0 (dentro de barco) … 0.0 (sobre barco/muelle) … +40.0] m
-y_h0 = y_c0_0.Value;  % + H_c.Value; % [m] altura inicial del accionamiento de izaje: apoyado sobre perfil de obstáculos
+y_h0 = y_c0_x_l0.Value;  % + H_c.Value; % [m] altura inicial del accionamiento de izaje: apoyado sobre perfil de obstáculos
 % y_h0 = Y_t0 - l_h0;
+
 clearance_min = 2;  % [m] distancia de despeje mínima entre perfil de obstáculos y carga
-
-
 
 %% MOVIMIENTO DE LA CARGA
 % c: container | s: spreader
