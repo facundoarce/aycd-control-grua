@@ -1,0 +1,15 @@
+# Archivos de texto: se guardan con LF en el repositorio y se convierten
+# automáticamente al final de línea de cada plataforma al hacer checkout.
+* text=auto
+*.m     text diff=matlab
+*.mdl   text
+*.md    text
+*.prj   text
+*.xml   text
+
+# Archivos binarios de MATLAB/Simulink
+*.slx    binary
+*.slxc   binary
+*.mat    binary
+*.mldatx binary
+*.mexw64 binary
