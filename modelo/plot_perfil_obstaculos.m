@@ -75,7 +75,7 @@ xlim([x_edges(1) x_edges(end)]);
 ylim([y_min y_max]);
 xlabel('x [m]');
 ylabel('y_{c0} [m]');
-legend('Location', 'northwest');
+legend('Location', 'northeast');
 
 %% Animación y exportación a GIF
 dt_frame = 1.0;  % [s] duración de cada cuadro (los flancos de TLK no son equiespaciados)
