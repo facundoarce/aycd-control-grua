@@ -22,7 +22,7 @@ senales = {
     'y_l',          planta, 6
     'contacto',     planta, 10
     'TLK_OUT',      sup,    4
-    'perfil',       [planta '/Carga suspendida/Perfil de obstáculos'], 1
+    'perfil',       [planta '/Carga suspendida/Perfil en x_l'], 1  % perfil bajo la carga
     'm_l',          planta, 11
     'm_l_est',      sup,    3
     % Traslación manual
