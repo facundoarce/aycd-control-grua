@@ -5,6 +5,7 @@ clear variables;
 T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (control de seguridad)
 T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control supervisor)
 T_s2 = 1/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
+T_anim = 200/1000;  % [s] Período de refresco de la animación de la grúa (sólo visualización)
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
@@ -289,6 +290,10 @@ sensor_elem(5).DataType = 'double';
 sensor_elem(6) = Simulink.BusElement;
 sensor_elem(6).Name = 'F_hw';
 sensor_elem(6).DataType = 'double';
+
+sensor_elem(7) = Simulink.BusElement;
+sensor_elem(7).Name = 'x_t';
+sensor_elem(7).DataType = 'double';
 
 command_bus = Simulink.Bus;
 command_bus.Elements = sensor_elem;
