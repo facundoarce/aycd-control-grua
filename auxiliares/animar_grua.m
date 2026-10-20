@@ -1,11 +1,12 @@
-function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contacto, ignorar_on)
+function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contacto, m_estimated, ignorar_on)
 %ANIMAR_GRUA Dibuja la grúa, la carga y el perfil de obstáculos durante la simulación.
 %   Se llama como función extrínseca desde el bloque MATLAB Function
 %   "Animación" de sistema_completo (agregado con agregar_animacion.m).
 %   Entradas: tiempo de simulación, posición y velocidad del carro, posición
 %   de la carga (base del spreader), ángulo de balanceo, estado de twistlocks,
-%   vector de perfil de obstáculos (un valor por slot) y contacto de la carga
-%   con el perfil (apoyada).
+%   vector de perfil de obstáculos (un valor por slot), contacto de la carga
+%   con el perfil (apoyada) y masa de la carga estimada por el supervisor
+%   (NaN si no se conoce, p. ej. en corridas exportadas sin esa señal).
 %
 %   Los parámetros geométricos se leen del workspace base (parametros.m).
 %   Para desactivar la animación sin tocar el modelo: animacion_on = false
@@ -20,7 +21,7 @@ function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contac
 persistent S
 
 fig = [];
-if nargin < 10
+if nargin < 11
     ignorar_on = false;
 end
 if ~ignorar_on && evalin('base', 'exist(''animacion_on'', ''var'') && ~animacion_on')
@@ -56,8 +57,9 @@ end
 set(S.texto, 'String', sprintf(['t = %6.1f s\n' ...
     'x_t = %6.2f m   v_t = %5.2f m/s\n' ...
     'x_l = %6.2f m   y_l = %6.2f m\n' ...
-    '\\theta_l = %5.1f°   TLK = %d   contacto = %d'], ...
-    t, x_t, x_t_dot, x_l, y_l, theta_l * 180 / pi, TLK, contacto));
+    '\\theta_l = %5.1f°   TLK = %d   contacto = %d\n' ...
+    'masa: %s'], ...
+    t, x_t, x_t_dot, x_l, y_l, theta_l * 180 / pi, TLK, contacto, texto_masa(m_estimated)));
 
 drawnow limitrate;
 end
@@ -147,6 +149,17 @@ legend(S.ax, 'Location', 'northeast');
 
 S.y_c0 = y_c0(:);
 actualizar_perfil(S);
+end
+
+function s = texto_masa(m_estimated)
+% Estado de la estimación de masa para el recuadro de texto
+if isnan(double(m_estimated))
+    s = 's/d';
+elseif m_estimated
+    s = 'estimada';
+else
+    s = 'estimando (traslación bloqueada)';
+end
 end
 
 function actualizar_perfil(S)

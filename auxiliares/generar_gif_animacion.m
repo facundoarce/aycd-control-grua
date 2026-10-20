@@ -53,6 +53,12 @@ y_l     = muestrear(d.y_l, t);
 theta_l = muestrear(d.theta_l, t);
 TLK     = muestrear(d.TLK_OUT, t) > 0.5;
 cont    = muestrear(d.contacto, t) > 0.5;
+% Estado de la estimación de masa (exportado desde 2026-10-12; NaN si falta)
+if isfield(d, 'm_estimated')
+    m_est = muestrear(d.m_estimated, t) > 0.5;
+else
+    m_est = nan(size(t(:)));
+end
 
 % Perfil de obstáculos: vector por slot (exportado desde 2026-10-10)
 if isfield(d, 'y_c0')
@@ -73,7 +79,7 @@ gif = fullfile(carpeta, [nombre '_animacion.gif']);
 tic;
 for k = 1:numel(t)
     fig = animar_grua(t(k), x_t(k), x_t_dot(k), x_l(k), y_l(k), theta_l(k), ...
-        TLK(k), y_c0(k, :), cont(k), true);
+        TLK(k), y_c0(k, :), cont(k), m_est(k), true);
     if k == 1
         % Tamaño fijo (la figura se crea maximizada) y esperar a que la
         % ventana lo tome antes de fijar el tamaño del GIF con el primer cuadro
