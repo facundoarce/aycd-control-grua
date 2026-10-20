@@ -295,6 +295,10 @@ sensor_elem(7) = Simulink.BusElement;
 sensor_elem(7).Name = 'x_t';
 sensor_elem(7).DataType = 'double';
 
+sensor_elem(8) = Simulink.BusElement;
+sensor_elem(8).Name = 'T_tm';
+sensor_elem(8).DataType = 'double';
+
 command_bus = Simulink.Bus;
 command_bus.Elements = sensor_elem;
 assignin('base', 'sensor_bus', command_bus);
@@ -320,6 +324,11 @@ assignin('base', 'command_bus', command_bus);
 l_h_tol = 1.0;        % [m] tolerancia llegada a l_h_peak
 l_h_man_thresh = 1.0; % [m] umbral zona manual izaje
 x_t_man_thresh = 1.0; % [m] umbral zona manual traslación
+
+% Freno de operación del carro
+v_t_brk = 0.05 * v_t_max;      % [m/s] velocidad de carro bajo la cual se cierra el freno (w_tm_MinBRK = i_t * v_t_brk / r_td)
+theta_l_brk = 1.0 * pi / 180;  % [rad] balanceo bajo el cual se cierra el freno (ángulo residual)
+T_tm_proof = 0.1 * T_tm_max;   % [N.m] torque de motor de carro que valida la apertura del freno (torque proving)
 
 
 
