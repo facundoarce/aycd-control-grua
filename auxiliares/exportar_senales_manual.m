@@ -11,6 +11,10 @@ function archivo = exportar_senales_manual(arg, archivo)
 %       señales duplicadas como M_cx) y las guarda como timeseries en un .mat.
 %       Por defecto: tmp/senales_manual_<fecha>.mat.
 %       Sin argumentos (o con out vacío) usa la variable out del workspace base.
+%   archivo = exportar_senales_manual('sdi')
+%       Toma las señales de la última corrida del Simulation Data Inspector.
+%       Se usa también automáticamente si no hay variable out o si logsout no
+%       se puede leer (p. ej. después de detener la simulación a mano).
 
 modelo = 'sistema_completo';
 sup    = [modelo '/Controladores de movimiento/Control supervisor global (Nivel 1)'];
@@ -22,13 +26,17 @@ senales = {
     'y_l',          planta, 6
     'contacto',     planta, 10
     'TLK_OUT',      sup,    4
-    'perfil',       [planta '/Carga suspendida/Perfil en x_l'], 1  % perfil bajo la carga
+    'perfil',       [planta '/Carga suspendida/Perfil de obstáculos/Perfil en x_l'], 1  % perfil bajo la carga
     'm_l',          planta, 11
     'm_l_est',      sup,    3
-    % Traslación manual
+    % Izaje y traslación manual
     'translation',  [modelo '/Controladores de movimiento/Selector'], 1
+    'hoist',        [modelo '/Controladores de movimiento/Gain'], 1  % palanca de izaje
+    'v_h_ref',      sup,    2
+    'm_estimated',  sup,    7  % requiere agregar_salida_m_estimated.m
     'v_t_ref',      sup,    1
     'BRK_t',        sup,    5
+    'T_tm',         planta, 13  % torque del motor de carro (agregar_T_tm_sensor_bus.m)
     'x_t',          planta, 1
     'x_t_dot',      planta, 2
     'x_l',          planta, 5
@@ -40,15 +48,23 @@ senales = {
 
 % Por defecto: variable out del workspace base (la que deja la simulación)
 if nargin < 1 || isempty(arg)
-    assert(evalin('base', 'exist(''out'', ''var'')') == 1, ...
-        'No hay variable out en el workspace base: simular primero.');
-    arg = evalin('base', 'out');
+    if evalin('base', 'exist(''out'', ''var'')') == 1
+        arg = evalin('base', 'out');
+    else
+        warning('No hay variable out en el workspace base: se usa el Simulation Data Inspector.');
+        arg = 'sdi';
+    end
 end
 
 if ischar(arg) && strcmp(arg, 'registrar')
     load_system(modelo);
     for k = 1:size(senales, 1)
         ph = get_param(senales{k, 2}, 'PortHandles');
+        if senales{k, 3} > numel(ph.Outport)
+            warning('%s: %s no tiene salida %d (no se registra).', ...
+                senales{k, 1}, senales{k, 2}, senales{k, 3});
+            continue
+        end
         set_param(ph.Outport(senales{k, 3}), 'DataLogging', 'on');
     end
     fprintf('Registro activado en %d señales de %s (modelo sin guardar).\n', ...
@@ -58,7 +74,9 @@ if ischar(arg) && strcmp(arg, 'registrar')
 end
 
 % Dataset de señales registradas
-if isa(arg, 'Simulink.SimulationOutput')
+if ischar(arg) && strcmp(arg, 'sdi')
+    logsout = dataset_sdi();
+elseif isa(arg, 'Simulink.SimulationOutput')
     logsout = arg.get('logsout');
 else
     logsout = arg;
@@ -75,11 +93,24 @@ if nargin < 2 || isempty(archivo)
 end
 
 % Bloque y puerto de cada elemento registrado
-n = logsout.numElements;
-bloques = cell(n, 1);
-puertos = zeros(n, 1);
+try
+    n = logsout.numElements;
+catch err
+    % logsout lee las señales del SDI recién al usarse; si la simulación se
+    % detuvo a mano esa lectura puede fallar: exportar la corrida del SDI
+    warning('No se pudo leer logsout (%s): se usa el Simulation Data Inspector.', err.message);
+    logsout = dataset_sdi();
+    n = logsout.numElements;
+end
+bloques = repmat({''}, n, 1);
+puertos = nan(n, 1);
 for i = 1:n
     el = logsout.getElement(i);
+    % Sólo señales de salida de bloques (la corrida del SDI puede incluir
+    % también otros elementos, p. ej. Simulink.SimulationData.Parameter)
+    if ~isa(el, 'Simulink.SimulationData.Signal') || el.BlockPath.getLength() == 0
+        continue
+    end
     bloques{i} = el.BlockPath.getBlock(el.BlockPath.getLength());
     puertos(i) = el.PortIndex;
 end
@@ -106,4 +137,15 @@ assert(~isempty(fieldnames(datos)), 'Ninguna señal de la tabla está en logsout.'
 
 save(archivo, '-struct', 'datos');
 fprintf('%d señales guardadas en %s\n', numel(fieldnames(datos)), archivo);
+end
+
+function ds = dataset_sdi()
+% Señales de la última corrida del Simulation Data Inspector como Dataset
+ids = Simulink.sdi.getAllRunIDs;
+assert(~isempty(ids), 'No hay corridas en el Simulation Data Inspector.');
+try
+    ds = Simulink.sdi.exportRun(ids(end));
+catch
+    ds = export(Simulink.sdi.getRun(ids(end)));
+end
 end
