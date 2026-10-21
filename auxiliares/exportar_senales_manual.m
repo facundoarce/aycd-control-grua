@@ -19,6 +19,7 @@ function archivo = exportar_senales_manual(arg, archivo)
 modelo = 'sistema_completo';
 sup    = [modelo '/Controladores de movimiento/Control supervisor global (Nivel 1)'];
 planta = [modelo '/Planta física'];
+cmd    = [modelo '/Controladores de movimiento/Comandos de operador'];
 
 % Variable en el .mat | Bloque | Puerto de salida
 senales = {
@@ -30,8 +31,10 @@ senales = {
     'm_l',          planta, 11
     'm_l_est',      sup,    3
     % Izaje y traslación manual
-    'translation',  [modelo '/Controladores de movimiento/Selector'], 1
-    'hoist',        [modelo '/Controladores de movimiento/Gain'], 1  % palanca de izaje
+    % Comandos de operador (joystick o escenario; agregar_comandos_variantes.m)
+    'translation',  cmd,    1  % palanca de carro
+    'hoist',        cmd,    2  % palanca de izaje
+    'TLK_cmd',      cmd,    3  % botón de twistlocks
     'v_h_ref',      sup,    2
     'm_estimated',  sup,    7  % requiere agregar_salida_m_estimated.m
     'v_t_ref',      sup,    1
