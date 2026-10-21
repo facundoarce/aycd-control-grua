@@ -6,6 +6,7 @@ T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (cont
 T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control supervisor)
 T_s2 = 1/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
 T_anim = 200/1000;  % [s] Período de refresco de la animación de la grúa (sólo visualización)
+modo_comandos = 1;  % Comandos de operador: 1 = joystick; 2 = escenario (cmd_* en el workspace, ver correr_escenario.m)
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
