@@ -177,6 +177,9 @@ M_c_max = 50000;    %% [kg] masa de container máxima (totalmente cargado)
 M_c_min = 2000;     %% [kg] masa de container mínima (vacío, sin carga)
 overload = false;   % [bool] condición de sobrecarga para simulación. Setear en "true" para simular M_cx > M_c_max
 
+% Umbral de carga apoyada/suspendida (supervisor nivel 1 y controladores nivel 2)
+F_hw_min = M_s * g.Value / 2;  % [N] tensión del cable de izaje con el spreader vacío suspendido (valor por debajo significa carga apoyada)
+
 % Parámetros de contacto para carga apoyada
 % c: contact
 K_cy = 1.8e9;       % [N/m] rigidez  por contacto vertical (compresión)
