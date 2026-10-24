@@ -40,6 +40,10 @@ senales = {
     'v_t_ref',      sup,    1
     'BRK_t',        sup,    5
     'T_tm',         planta, 13  % torque del motor de carro (agregar_T_tm_sensor_bus.m)
+    'ls_t_min',     planta, 14  % fines de carrera de operación (agregar_fines_carrera_sensor_bus.m)
+    'ls_t_max',     planta, 15
+    'ls_h_min',     planta, 16
+    'ls_h_max',     planta, 17
     'x_t',          planta, 1
     'x_t_dot',      planta, 2
     'x_l',          planta, 5
