@@ -62,8 +62,8 @@ y_h_min_oper = Simulink.Parameter(-20.0);  % [m] límite de operación mínimo (den
 y_h_min_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
 y_h_max_oper = Simulink.Parameter(40.0);   % [m] límite de operación máximo (sobre barco/muelle)
 y_h_max_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
-y_h_min_emer = y_h_min_oper.Value - 1.0;   % [m] límite de emergencia mínimo
-y_h_max_emer = y_h_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
+y_h_min_emer = y_h_min_oper.Value - 0.5;   % [m] límite de emergencia mínimo (guía 3.2: 0.50 m más allá del de operación)
+y_h_max_emer = y_h_max_oper.Value + 0.5;   % [m] límite de emergencia máximo
 
 % theta_hd_min_oper = -2*(Y_t0 - y_h_min_oper)/r_hd;   % [rad] límite de operación mínimo (rotativos en tambor)
 % theta_hd_max_oper = -2*(Y_t0 - y_h_max_oper)/r_hd;   % [rad] límite de operación máximo (rotativos en tambor)
@@ -92,8 +92,8 @@ x_t_min_oper = Simulink.Parameter(-30.0);  % [m] límite de operación mínimo (sob
 x_t_min_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
 x_t_max_oper = Simulink.Parameter(50.0);   % [m] límite de operación máximo (sobre barco)
 x_t_max_oper.CoderInfo.StorageClass = 'SimulinkGlobal';
-x_t_min_emer = x_t_min_oper.Value - 1.0;   % [m] límite de emergencia mínimo
-x_t_max_emer = x_t_max_oper.Value + 1.0;   % [m] límite de emergencia máximo
+x_t_min_emer = x_t_min_oper.Value - 0.5;   % [m] límite de emergencia mínimo (guía 3.2: 0.50 m más allá del de operación)
+x_t_max_emer = x_t_max_oper.Value + 0.5;   % [m] límite de emergencia máximo
 
 % Velocidad y aceleración máximas
 v_t_max = 4.0;  % [m/s] velocidad de traslación máxima (cargado o sin carga)
@@ -302,6 +302,14 @@ sensor_elem(7).DataType = 'double';
 sensor_elem(8) = Simulink.BusElement;
 sensor_elem(8).Name = 'T_tm';
 sensor_elem(8).DataType = 'double';
+
+% Fines de carrera de operación (entradas digitales)
+limit_switch_names = {'ls_t_min', 'ls_t_max', 'ls_h_min', 'ls_h_max'};  % carro: x_t <= x_t_min_oper, x_t >= x_t_max_oper; izaje: y_h <= y_h_min_oper, y_h >= y_h_max_oper
+for k = 1:numel(limit_switch_names)
+    sensor_elem(8 + k) = Simulink.BusElement;
+    sensor_elem(8 + k).Name = limit_switch_names{k};
+    sensor_elem(8 + k).DataType = 'boolean';
+end
 
 command_bus = Simulink.Bus;
 command_bus.Elements = sensor_elem;
