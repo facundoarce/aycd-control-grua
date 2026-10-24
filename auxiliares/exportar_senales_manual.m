@@ -17,9 +17,9 @@ function archivo = exportar_senales_manual(arg, archivo)
 %       se puede leer (p. ej. después de detener la simulación a mano).
 
 modelo = 'sistema_completo';
-sup    = [modelo '/Controladores de movimiento/Control supervisor global (Nivel 1)'];
+sup    = [modelo '/Controladores/Control supervisor global (Nivel 1)'];
 planta = [modelo '/Planta física'];
-cmd    = [modelo '/Controladores de movimiento/Comandos de operador'];
+cmd    = [modelo '/Controladores/Comandos de operador'];
 
 % Variable en el .mat | Bloque | Puerto de salida
 senales = {
