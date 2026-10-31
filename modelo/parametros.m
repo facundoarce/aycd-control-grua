@@ -49,7 +49,7 @@ P_h_nom = 956150;   % [W] Potencia nominal de izaje (constante) entre v_h_nom y 
 a_h_max = 0.75;  % [m/s^2] aceleración de izaje máxima (cargado o sin carga)
 
 % Modulador de torque en motor-drive de izaje con limitador de torque máx.
-tau_hm = 1.0;       % [ms] constante de tiempo de modulador de torque
+tau_hm = 1.0e-3;    % [s] constante de tiempo de modulador de torque
 T_hm_MAX = 2.0e4;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
 % (Ec 6.b) 2 * v_h(t) = r_hd * w_hd(t)
 % (Ec 6.d) w_hd(t) * i_h = w_hm(t)
@@ -70,10 +70,10 @@ y_h_max_emer = y_h_max_oper.Value + 0.5;   % [m] límite de emergencia máximo
 % theta_hd_min_emer = -2*(Y_t0 - y_h_min_emer)/r_hd;   % [rad] límite de emergencia mínimo (rotativos en tambor)
 % theta_hd_max_emer = -2*(Y_t0 - y_h_max_emer)/r_hd;   % [rad] límite de emergencia máximo (rotativos en tambor)
 
-% Modelo de izaje equivalente
-% m_h_eq * h_h_ddot = F_h_eq - b_h_eq * l_h_dot - F_hw
-m_h_eq = 2 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);  % [m] masa equivalente del modelo de izaje
-b_h_eq = 2 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);         % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
+% Modelo de izaje equivalente (fuerza total de los dos ramales de cable)
+% m_h_eq * l_h_ddot = 2*F_hw - F_h_eq - b_h_eq * l_h_dot, con F_h_eq = 2*i_h*T_hm/r_hd
+m_h_eq = 4 * ( J_hd_hEb + i_h^2*J_hm_hb ) / (r_hd^2);  % [m] masa equivalente del modelo de izaje
+b_h_eq = 4 * ( b_hd + i_h^2*b_hm ) / (r_hd^2);         % [N/(m/s)] coeficiente de fricción equivalente del modelo de izaje
 
 %% SISTEMA DE TRASLACIÓN DE CARRO
 % Carro y cable de acero de carro
@@ -98,6 +98,7 @@ x_t_max_emer = x_t_max_oper.Value + 0.5;   % [m] límite de emergencia máximo
 % Velocidad y aceleración máximas
 v_t_max = 4.0;  % [m/s] velocidad de traslación máxima (cargado o sin carga)
 a_t_max = 0.8;  % [m/s^2] aceleración de traslación máxima (cargado o sin carga)
+k_v_lim = 0.8;  % [1/s] pendiente máxima de la curva de frenado hacia los fines de carrera del carro (v <= min(sqrt(2*a_t_max*d), k_v_lim*d); tramo lineal a menos de 2*a_t_max/k_v_lim^2 = 2.5 m)
 
 % Accionamiento de traslación de carro
 % t: trolley | td: trolley drum? | tm: trolley motor | tb: trolley break |
@@ -111,7 +112,7 @@ J_tm_tb = 7.0;      % [kg.m^2] momento de inercia equivalente de eje rápido
 b_tm = 6.0;         % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equivalente del eje rápido
 b_tb = 5.0e6;       % [N.m/(rad/s)] coeficiente de fricción mecánica viscosa equivalente del freno de operación
 T_tb_max = 5.0e3;   % [N.m] torque máximo de frenado del freno de operación
-tau_tm = 1.0;       % [ms] constante de tiempo de modulador de torque
+tau_tm = 1.0e-3;    % [s] constante de tiempo de modulador de torque
 T_tm_max = 4.0e3;   % [N.m] torque máximo de motorización / frenado regenerativo del motor
 
 % Modelo de traslación equivalente
@@ -179,6 +180,7 @@ overload = false;   % [bool] condición de sobrecarga para simulación. Setear en 
 
 % Umbral de carga apoyada/suspendida (supervisor nivel 1 y controladores nivel 2)
 F_hw_min = M_s * g.Value / 2;  % [N] tensión del cable de izaje con el spreader vacío suspendido (valor por debajo significa carga apoyada)
+F_hw_susp_min = 0.5 * F_hw_min;  % [N] tensión mínima para considerar la carga suspendida (habilitación del control de balanceo; margen frente a las oscilaciones de F_hw con el spreader vacío)
 
 % Parámetros de contacto para carga apoyada
 % c: contact
@@ -203,69 +205,88 @@ w_n_theta_min = sqrt(g.Value/l_h_max);
 
 %% CONTROLADORES DE MOVIMIENTO
 
+% Controladores PI de velocidad: F* = K_pv*e_v + K_iv*integral(e_v), con
+% e_v = v* - v. Sobre la planta equivalente 1/(m_eq*s + b_eq), la ecuación
+% característica es m_eq*s^2 + (b_eq + K_pv)*s + K_iv = 0; igualando con
+% m_eq*(s^2 + 2*xi*w*s + w^2) resulta K_pv = 2*xi*w*m_eq - b_eq y K_iv = w^2*m_eq.
+% Anti-windup: el integrador se limita de modo que la acción I no supere la
+% fuerza equivalente máxima del accionamiento (F_eq_max/K_iv).
+
 % ==================== Control de traslación del carro ====================
 
 % Movimiento de traslación del carro
 % Función de transferencia: H_t(s)=V_t(s)/F_t_eq(s)=1/(m_t_eq*s+b_t_eq)
 p_t = -b_t_eq.Value/m_t_eq;  % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
 
-% Sistema deseado a lazo cerrado de movimiento de traslación del carro
-w_tc = 0.7 * w_n_theta_min;   % [1/s] frecuencia deseada del subsistema a lazo cerrado
-xi_tc = 0.8;        % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
-p3_tc = 5 * w_tc;   % [-] Tercer polo a lazo cerrado
+% Sistema deseado a lazo cerrado de velocidad del carro (doc. 4: w = 10*|p|, xi = 0.7)
+% Realimentación: velocidad del cable en el tambor v_td (encoder del motor,
+% guía 3.2.a), colocada con la fuerza del motor. Con la velocidad del carro v_t
+% el modo del cable de carro (~5.7 rad/s) se inestabiliza con estas ganancias
+w_tc = 10 * abs(p_t);  % [1/s] frecuencia natural deseada del lazo cerrado de velocidad
+xi_tc = 0.7;           % [-] factor de amortiguamiento deseado del lazo cerrado de velocidad
 
-% Ganancias del controlador PID de movimiento de traslación del carro
-K_d_t = 2*m_t_eq*xi_tc*w_tc + m_t_eq*p3_tc - b_t_eq.Value;  % [-] ganancia derivativa del controlador PID
-K_p_t = m_t_eq*w_tc^2 + 2*m_t_eq*xi_tc*w_tc*p3_tc;  % [-] ganancia proporcional del controlador PID
-K_i_t = m_t_eq*p3_tc*w_tc^2;  % [-] ganancia integral del controlador PID
+% Ganancias del controlador PI de velocidad del carro
+K_pv_t = 2*xi_tc*w_tc*m_t_eq - b_t_eq.Value;  % [N/(m/s)] ganancia proporcional
+K_iv_t = w_tc^2*m_t_eq;                       % [N/m] ganancia integral
+
+% Anti-windup: fuerza equivalente máxima del accionamiento de carro
+F_t_eq_max = T_tm_max * i_t / r_td;  % [N]
 
 
 % ===================== Control de izaje de la carga ======================
 
-% % Movimiento de izaje del carro
-% % Función de transferencia: H_h(s)=L_h(s)/F_h_eq_total(s)=1/(m_h_eq*s^2+b_h_eq*s)
-% p_ol = b_h_eq/m_h_eq;
-% s_h = -p_ol;   % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
-% 
-% % Sistema deseado a lazo cerrado de movimiento de izaje de la carga
-% sigma_cl = 0.7 * p_ol;    % [-] Parte real de polos dominantes 1 y 2 a lazo cerrado
-% omega_cl = 0;             % [-] Parte imaginaria de polos dominantes 1 y 2 a lazo cerrado
-% p3_h_cl = 10 * sigma_cl;  % [-] Parte real de polo 3 no dominante a lazo cerrado
-% 
-% % Ganancias del controlador PID de izaje de la carga
-% K_d_h = m_h_eq*(2*sigma_cl+p3_h_cl) - b_h_eq;  % [-] ganancia derivativa del controlador PID
-% K_p_h = m_h_eq*(sigma_cl^2 + omega_cl^2 + 2*p3_h_cl*sigma_cl);  % [-] ganancia proporcional del controlador PID
-% K_i_h = m_h_eq*(sigma_cl^2 + omega_cl^2)*p3_h_cl;  % [-] ganancia integral del controlador PID
+% Movimiento de izaje (fuerza total de los dos ramales: perturbación 2*F_hw)
+% Función de transferencia: H_h(s)=V_h(s)/F_h_eq(s)=1/(m_h_eq*s+b_h_eq), v_h = -l_h_dot
+p_h = -b_h_eq/m_h_eq;  % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
 
+% Sistema deseado a lazo cerrado de velocidad de izaje (doc. 4: w = 10*|p|, xi = 0.7)
+% Realimentación: v_h = -l_h_dot (encoder del motor de izaje, guía 3.2.a)
+w_hc = 10 * abs(p_h);  % [1/s] frecuencia natural deseada del lazo cerrado de velocidad
+xi_hc = 0.7;           % [-] factor de amortiguamiento deseado del lazo cerrado de velocidad
 
-% Función de transferencia: H_h(s)=L_h(s)/F_h_eq_total(s)=1/(m_h_eq*s^2+b_h_eq*s)
-p_h = b_h_eq/m_h_eq;
-s_h = -p_h;   % [1/s] polo del subsistema a lazo abierto (negativo: sistema estable)
+% Ganancias del controlador PI de velocidad de izaje (más compensación
+% anticipativa de 2*F_hw en el modelo)
+K_pv_h = 2*xi_hc*w_hc*m_h_eq - b_h_eq;  % [N/(m/s)] ganancia proporcional
+K_iv_h = w_hc^2*m_h_eq;                 % [N/m] ganancia integral
 
-% Sistema deseado a lazo cerrado de movimiento de izaje de la carga
-xi_hc = 0.7;               % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
-w_hc = 0.5 * p_h / xi_hc;  % [1/s] frecuencia deseada del subsistema a lazo cerrado
-p3_hc = 10 * w_hc;         % [-] Tercer polo a lazo cerrado
-
-% Ganancias del controlador PID de izaje de la carga
-K_d_h = 2*m_h_eq*xi_hc*w_hc + m_h_eq*p3_hc - b_h_eq;  % [-] ganancia derivativa del controlador PID
-K_p_h = m_h_eq*w_hc^2 + 2*m_h_eq*xi_hc*w_hc*p3_hc;  % [-] ganancia proporcional del controlador PID
-K_i_h = m_h_eq*p3_hc*w_hc^2;  % [-] ganancia integral del controlador PID
+% Anti-windup: fuerza equivalente máxima del accionamiento de izaje (dos
+% ramales, a velocidad nominal del motor)
+F_h_eq_max = 2 * T_hm_MAX * i_h / r_hd;  % [N]
 
 
 % ==================== Control de balanceo de la carga ====================
 % th: theta (relacionado a balanceo de la carga)
 
-% Controlador de balanceo de la carga
+% Controlador de balanceo de la carga: PD alrededor del equilibrio dinámico
+% (guía 4.2), sin acción integral (k_p3_th = 0 => K_i_th = 0): con integral y
+% consigna theta = 0 el control cancelaba la aceleración pedida por el operador.
+% Con w_c_th = w_n_th el control no cambia la rigidez del péndulo y equivale a
+% inyectar amortiguamiento: a_theta ~ (2*xi*sqrt(g*l_h) - 2*l_h_dot)*theta_dot
 % w_c_th = k_w_c_th * w_n_th
 % w_c_th: frecuencia natural deseada del subsistema a lazo cerrado
 % w_n_th: frecuencia natural del subsistema físico a lazo abierto
-k_w_c_th = 0.7; % [-] factor de frecuencia natural deseada del subsistema a lazo cerrado
+k_w_c_th = 1;   % [-] factor de frecuencia natural deseada del subsistema a lazo cerrado
 % p3_th = k_p3_th * w_c_th
-% p3_th: tercer polo del susbsistema a lazo cerrado
-k_p3_th = 3;    % [-] factor del tercer polo a lazo cerrado
-xi_c_th = 0.7;  % [-] factor de amortiguamiento deseado del susbsistema a lazo cerrado
+% p3_th: tercer polo del susbsistema a lazo cerrado (0: controlador PD)
+k_p3_th = 0;    % [-] factor del tercer polo a lazo cerrado
+xi_c_th = 1;    % [-] factor de amortiguamiento deseado (crítico, guía 4.2)
 k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre actuación del carro
+
+% Corrección de la consigna de velocidad del carro por balanceo: la aceleración
+% a_theta (linealización por realimentación) se satura en a_t_max y se integra
+% con fuga: d(dv_t_th)/dt = a_theta - dv_t_th/tau_w_th
+tau_w_th = 10;                % [s] constante de tiempo de la fuga (washout) de la corrección
+dv_t_th_max = 0.25 * v_t_max; % [m/s] corrección máxima de la consigna de velocidad del carro
+
+% Subida limitada con balanceo grande (función limit_v_h del supervisor):
+% acortar el cable amplifica la amplitud del balanceo (~l^(-3/4)). Cerca de los
+% fines de carrera del carro, el control de balanceo no tiene recorrido para
+% corregir (simulación: con el carro detenido a 2 m o más del límite, el
+% balanceo queda en ~12° sin limitar la subida; a 1 m o menos supera 20°)
+d_sway_margin = 2;                       % [m] distancia al fin de carrera del carro considerada "cerca"
+theta_amp_hoist_near = 5 * pi/180;       % [rad] amplitud de balanceo máxima para subir a velocidad normal cerca de los fines de carrera
+theta_amp_hoist_far = 10 * pi/180;       % [rad] ídem en el resto del recorrido
+v_h_sway_slow = 0.1 * v_h_nom;           % [m/s] velocidad de subida con balanceo mayor que el umbral
 
 %% CONTROLADORES DE MOVIMIENTO
 
