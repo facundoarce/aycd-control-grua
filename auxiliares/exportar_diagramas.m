@@ -98,11 +98,18 @@ end
 end
 
 function nombre = nombre_archivo(ruta)
-% Ruta del bloque -> nombre de archivo ASCII: niveles separados por '-'
+% Ruta del bloque -> nombre de archivo ASCII corto: los dos últimos niveles
+% separados por '-', sin artículos ni preposiciones (rutas de Windows de menos
+% de 260 caracteres, necesario para git)
 nombre = strrep(ruta, newline, ' ');
 nombre = regexprep(nombre, {'[áÁ]', '[éÉ]', '[íÍ]', '[óÓ]', '[úÚ]', '[ñÑ]'}, ...
     {'a', 'e', 'i', 'o', 'u', 'n'});
-partes = regexprep(lower(strsplit(nombre, '/')), '[^a-z0-9]+', '_');
-partes = regexprep(partes, '^_+|_+$', '');
+partes = strsplit(lower(nombre), '/');
+partes = partes(max(1, end-1):end);
+for k = 1:numel(partes)
+    palabras = regexp(partes{k}, '[a-z0-9]+', 'match');
+    palabras = palabras(~ismember(palabras, {'de', 'del', 'en', 'a', 'la', 'el', 'y'}));
+    partes{k} = strjoin(palabras, '_');
+end
 nombre = strjoin(partes, '-');
 end
