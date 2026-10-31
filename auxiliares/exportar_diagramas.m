@@ -1,24 +1,34 @@
-function exportar_diagramas(dir_salida, modelo)
+function exportar_diagramas(dir_salida, modelo, formatos)
 %EXPORTAR_DIAGRAMAS Exporta los diagramas del modelo como imágenes vectoriales.
 %   exportar_diagramas
 %   exportar_diagramas(dir_salida)
 %   exportar_diagramas(dir_salida, modelo)
+%   exportar_diagramas(dir_salida, modelo, formatos)
 %       Exporta el nivel superior y cada subsistema de modelo (por defecto
 %       sistema_completo) en formato vectorial (texto y líneas vectoriales, sin
-%       pérdida de resolución al hacer zoom). Prueba los formatos de FORMATOS
-%       en orden y usa el primero que acepte la versión de Simulink (R2019a no
-%       acepta 'epsc'). Los charts de Stateflow se exportan con sfprint si
-%       print -s falla.
+%       pérdida de resolución al hacer zoom). Prueba los formatos en orden y
+%       usa el primero que acepte la versión de Simulink (R2019a no acepta
+%       'epsc'). Por defecto formatos = {'svg', 'pdf', 'eps', 'psc'}: el SVG
+%       conserva el texto como texto y, convertido con rsvg-convert, pesa hasta
+%       ~15 veces menos que el PDF de Simulink (que dibuja parte del texto como
+%       curvas). P. ej. exportar_diagramas('', '', {'pdf'}) exporta sólo en PDF.
+%       Los charts de Stateflow se exportan con sfprint si print -s falla.
 %       Por defecto dir_salida es figuras/simulink/originales del informe, que
 %       contiene a este repositorio como submódulo en ref/aycd-control-grua.
 %       No se exportan los bloques MATLAB Function (su código va en los
 %       anexos) ni los bloques enmascarados (Signal Builder).
+%       Durante la exportación se desactivan las miniaturas del contenido de
+%       los subsistemas (ContentPreviewEnabled): son ilegibles al tamaño del
+%       informe y multiplican por ~20 el tamaño del archivo.
 %       Escribe además indice.txt con la correspondencia archivo - bloque.
 %       No modifica ni guarda el modelo.
 %       En el informe, convertir a PDF recortado con figuras/scripts/recortar_diagramas.sh.
 
-if nargin < 2
+if nargin < 2 || isempty(modelo)
     modelo = 'sistema_completo';
+end
+if nargin < 3 || isempty(formatos)
+    formatos = {'svg', 'pdf', 'eps', 'psc'};
 end
 if nargin < 1 || isempty(dir_salida)
     raiz = fileparts(fileparts(mfilename('fullpath')));
@@ -35,6 +45,12 @@ load_system(modelo);
 sistemas = [{modelo}; find_system(modelo, 'LookUnderMasks', 'none', ...
     'FollowLinks', 'on', 'Variants', 'AllVariants', 'BlockType', 'SubSystem')];
 
+% Sin miniaturas del contenido; se restauran al final
+estaba_sucio = get_param(modelo, 'Dirty');
+con_miniatura = find_system(modelo, 'LookUnderMasks', 'all', 'FollowLinks', 'on', ...
+    'Variants', 'AllVariants', 'ContentPreviewEnabled', 'on');
+set_miniatura(con_miniatura, 'off');
+
 fid = fopen(fullfile(dir_salida, 'indice.txt'), 'w', 'n', 'UTF-8');
 n_ok = 0;
 for k = 1:numel(sistemas)
@@ -49,7 +65,7 @@ for k = 1:numel(sistemas)
     end
     base = fullfile(dir_salida, nombre_archivo(s));
     open_system(s);
-    [ext, msg] = imprimir(s, base, strcmp(sf_tipo, 'Chart'));
+    [ext, msg] = imprimir(s, base, strcmp(sf_tipo, 'Chart'), formatos);
     if es_bloque
         close_system(s);
     end
@@ -63,37 +79,50 @@ for k = 1:numel(sistemas)
 end
 fclose(fid);
 
+set_miniatura(con_miniatura, 'on');
+set_param(modelo, 'Dirty', estaba_sucio);
 if ~estaba_cargado
     close_system(modelo, 0);
 end
 fprintf('%d diagramas exportados en %s\n', n_ok, dir_salida);
 end
 
-function [ext, msg] = imprimir(s, base, es_chart)
+function [ext, msg] = imprimir(s, base, es_chart, formatos)
 % Imprime s en el primer formato vectorial aceptado. Devuelve la extensión
 % del archivo escrito, o vacío y el último mensaje de error.
-% Formato de print/sfprint | extensión
-FORMATOS = {'pdf', '.pdf'; 'svg', '.svg'; 'eps', '.eps'; 'psc', '.ps'};
+% Formato de print/sfprint -> extensión
+EXTENSIONES = containers.Map({'pdf', 'svg', 'eps', 'psc'}, {'.pdf', '.svg', '.eps', '.ps'});
 ext = '';
 msg = '';
-for k = 1:size(FORMATOS, 1)
-    archivo = [base FORMATOS{k, 2}];
+for k = 1:numel(formatos)
+    archivo = [base EXTENSIONES(formatos{k})];
     try
-        print(['-s' s], ['-d' FORMATOS{k, 1}], archivo);
+        print(['-s' s], ['-d' formatos{k}], archivo);
     catch err
         msg = err.message;
         if ~es_chart
             continue
         end
         try
-            sfprint(s, FORMATOS{k, 1}, archivo);
+            sfprint(s, formatos{k}, archivo);
         catch err
             msg = err.message;
             continue
         end
     end
-    ext = FORMATOS{k, 2};
+    ext = EXTENSIONES(formatos{k});
     return
+end
+end
+
+function set_miniatura(bloques, valor)
+% ContentPreviewEnabled de cada bloque (los bloques de biblioteca pueden no
+% aceptarlo)
+for k = 1:numel(bloques)
+    try
+        set_param(bloques{k}, 'ContentPreviewEnabled', valor);
+    catch
+    end
 end
 end
 
@@ -108,7 +137,7 @@ partes = strsplit(lower(nombre), '/');
 partes = partes(max(1, end-1):end);
 for k = 1:numel(partes)
     palabras = regexp(partes{k}, '[a-z0-9]+', 'match');
-    palabras = palabras(~ismember(palabras, {'de', 'del', 'en', 'a', 'la', 'el', 'y'}));
+    palabras = palabras(~ismember(palabras, {'de', 'del', 'en', 'la', 'el'}));
     partes{k} = strjoin(palabras, '_');
 end
 nombre = strjoin(partes, '-');
