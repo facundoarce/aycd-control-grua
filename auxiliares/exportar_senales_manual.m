@@ -1,4 +1,4 @@
-function archivo = exportar_senales_manual(arg, archivo)
+function varargout = exportar_senales_manual(arg, archivo)
 %EXPORTAR_SENALES_MANUAL Exporta las señales para analizar izaje y traslación manual.
 %   exportar_senales_manual('registrar')
 %       Activa el registro (DataLogging) de todas las señales de la tabla en
@@ -15,11 +15,14 @@ function archivo = exportar_senales_manual(arg, archivo)
 %       Toma las señales de la última corrida del Simulation Data Inspector.
 %       Se usa también automáticamente si no hay variable out o si logsout no
 %       se puede leer (p. ej. después de detener la simulación a mano).
+%   Sin salida pedida no devuelve el nombre del archivo (sólo lo imprime).
 
 modelo = 'sistema_completo';
 sup    = [modelo '/Controladores/Control supervisor global (Nivel 1)'];
 planta = [modelo '/Planta física'];
 cmd    = [modelo '/Controladores/Comandos de operador'];
+n2     = [modelo '/Controladores/Controladores de movimiento (Nivel 2)'];
+sway   = [n2 '/Controlador de ángulo de balanceo'];
 
 % Variable en el .mat | Bloque | Puerto de salida
 senales = {
@@ -51,6 +54,15 @@ senales = {
     'F_hw',         planta, 7
     % Animación (generar_gif_animacion.m)
     'y_c0',         planta, 12
+    % Nivel 2: controladores de movimiento y de balanceo
+    'l_h',          planta, 3   % altura de izaje y_h = Y_t0 - l_h (fines de carrera de izaje)
+    'l_h_dot',      planta, 4
+    'x_td_dot',     planta, 18  % velocidad del tambor de carro (actualizar_controladores_velocidad.m)
+    'x_td',         planta, 19  % posición del tambor de carro, encoder del motor (medir_carro_en_tambor.m)
+    'T_mt_ref',     n2,     1   % consigna de torque del motor de carro
+    'nu',           [sway '/Sum'], 1  % entrada virtual del control de balanceo
+    'a_theta',      [sway '/Linealización por realimentación'], 1  % (actualizar_balanceo_velocidad.m)
+    'dv_t_th',      [n2 '/Habilitación del control de ángulo de balanceo'], 1  % corrección de v_t*
     };
 
 % Por defecto: variable out del workspace base (la que deja la simulación)
@@ -76,7 +88,8 @@ if ischar(arg) && strcmp(arg, 'registrar')
     end
     fprintf('Registro activado en %d señales de %s (modelo sin guardar).\n', ...
         size(senales, 1), modelo);
-    archivo = '';
+    varargout = {''};
+    varargout = varargout(1:nargout);
     return
 end
 
@@ -144,6 +157,8 @@ assert(~isempty(fieldnames(datos)), 'Ninguna señal de la tabla está en logsout.'
 
 save(archivo, '-struct', 'datos');
 fprintf('%d señales guardadas en %s\n', numel(fieldnames(datos)), archivo);
+varargout = {archivo};
+varargout = varargout(1:nargout);
 end
 
 function ds = dataset_sdi()

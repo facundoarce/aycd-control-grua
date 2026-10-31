@@ -1,13 +1,18 @@
-function [results, file] = correr_escenario(scenario_name, varargin)
+function varargout = correr_escenario(scenario_name, varargin)
 %CORRER_ESCENARIO Simula sistema_completo con comandos de operador programados.
 %   [results, file] = correr_escenario('escenario_despegue_estimacion')
 %   [results, file] = correr_escenario(scenario_name, 'animacion', true)
+%   correr_escenario(scenario_name, 'parametros', struct('k_v_lim', 5))
+%       Sin salidas pedidas, sólo imprime la tabla de verificaciones.
+%       'parametros': variables que reemplazan en el workspace base a las de
+%       parametros.m (para probar otro valor sin editarlo).
 %       Ejecuta parametros.m, carga el escenario tmp/escenarios/<scenario_name>.m,
 %       arma las timeseries cmd_translation, cmd_hoist y cmd_TLK, simula con
 %       modo_comandos = 2 (variante "Escenario" de "Comandos de operador") y
 %       sin sincronizar con el tiempo real, exporta las señales a
 %       tmp/<scenario_name>_<fecha>.mat y aplica las verificaciones
-%       generales y las propias del escenario.
+%       generales y las propias del escenario. Los resultados se agregan al
+%       .mat (variable results) y se escriben en un .txt con el mismo nombre.
 %
 %   Un escenario es una función sin argumentos que devuelve un struct con:
 %       description  texto
@@ -21,7 +26,7 @@ function [results, file] = correr_escenario(scenario_name, varargin)
 %   Al terminar, modo_comandos vuelve a 1 y se restaura la sincronización con
 %   el tiempo real (el modelo queda modificado sin guardar: no hace falta guardarlo).
 
-opts = struct('animacion', false);
+opts = struct('animacion', false, 'parametros', struct());
 for k = 1:2:numel(varargin)
     opts.(varargin{k}) = varargin{k + 1};
 end
@@ -32,6 +37,12 @@ addpath(fullfile(root_dir, 'tmp', 'escenarios'));
 
 %% Parámetros y escenario
 evalin('base', 'parametros');
+names = fieldnames(opts.parametros);
+for k = 1:numel(names)
+    assignin('base', names{k}, opts.parametros.(names{k}));
+    fprintf('%s = %s (en lugar del valor de parametros.m)\n', names{k}, ...
+        mat2str(opts.parametros.(names{k})));
+end
 scen = feval(scenario_name);
 t = scen.steps(:, 1);
 assignin('base', 'cmd_translation', timeseries(scen.steps(:, 2), t));
@@ -65,6 +76,16 @@ if isfield(scen, 'check')
     results = [results, scen.check(d)];
 end
 print_results(results);
+% Resultados junto a las señales: variable results en el .mat y tabla en un
+% .txt con el mismo nombre
+save(file, 'results', '-append');
+[folder, base] = fileparts(file);
+fid = fopen(fullfile(folder, [base '.txt']), 'w', 'n', 'windows-1252');
+fprintf(fid, 'Escenario %s: %s\n', scenario_name, scen.description);
+print_results(results, fid);
+fclose(fid);
+varargout = {results, file};
+varargout = varargout(1:nargout);
 end
 
 %% Funciones locales
@@ -82,6 +103,16 @@ p = @(n) base_value(n);
 dt = 0.02;
 tg = (0:dt:d.y_l.Time(end))';
 y_l = sample_ts(d.y_l, tg);
+% Altura de izaje y_h = Y_t0 - l_h (tambor: la miden los fines de carrera de
+% izaje); con balanceo, y_l sube por el arco del péndulo. Si no se exportó
+% l_h, se usa y_l
+if isfield(d, 'l_h')
+    y_h = p('Y_t0') - sample_ts(d.l_h, tg);
+    y_name = 'y_h';
+else
+    y_h = y_l;
+    y_name = 'y_l';
+end
 results = struct('name', {}, 'ok', {}, 'detail', {});
 
 % Estimación de masa: error en cada nueva estimación
@@ -96,7 +127,7 @@ else
         sprintf('%s %% en t = %s s', mat2str(err', 2), mat2str(t_est', 4)));
 end
 
-v_y = abs(diff(y_l)) / dt;
+v_y = abs(diff(y_h)) / dt;
 results(end + 1) = check_row('Velocidad de izaje <= 115 % v_h_max', max(v_y) <= 1.15 * p('v_h_max'), ...
     sprintf('máx. %.2f m/s (límite %.2f)', max(v_y), 1.15 * p('v_h_max')));
 v_t = max(abs(d.x_t_dot.Data(:)));
@@ -108,8 +139,8 @@ results(end + 1) = check_row('Carro sin llegar a los límites de emergencia', ...
     sprintf('x_t entre %.2f y %.2f m (emergencia %.1f / %.1f)', min(x_t), max(x_t), ...
     p('x_t_min_emer'), p('x_t_max_emer')));
 results(end + 1) = check_row('Izaje sin llegar a los límites de emergencia', ...
-    min(y_l) > p('y_h_min_emer') && max(y_l) < p('y_h_max_emer'), ...
-    sprintf('y_l entre %.2f y %.2f m (emergencia %.1f / %.1f)', min(y_l), max(y_l), ...
+    min(y_h) > p('y_h_min_emer') && max(y_h) < p('y_h_max_emer'), ...
+    sprintf('%s entre %.2f y %.2f m (emergencia %.1f / %.1f)', y_name, min(y_h), max(y_h), ...
     p('y_h_min_emer'), p('y_h_max_emer')));
 th = max(abs(d.theta_l.Data(:))) * 180 / pi;
 results(end + 1) = check_row('Balanceo <= 20°', th <= 20, sprintf('máx. %.1f°', th));
@@ -121,8 +152,12 @@ function r = check_row(name, ok, detail)
 r = struct('name', name, 'ok', ok, 'detail', detail);
 end
 
-function print_results(results)
-fprintf('\n%-45s %-8s %s\n', 'Verificación', 'Result.', 'Detalle');
+function print_results(results, fid)
+% fid: 1 (consola, por defecto) o un archivo abierto con fopen
+if nargin < 2
+    fid = 1;
+end
+fprintf(fid, '\n%-45s %-8s %s\n', 'Verificación', 'Result.', 'Detalle');
 for k = 1:numel(results)
     if isnan(results(k).ok)
         r = 'N/A';
@@ -131,7 +166,7 @@ for k = 1:numel(results)
     else
         r = 'FALLA';
     end
-    fprintf('%-45s %-8s %s\n', results(k).name, r, results(k).detail);
+    fprintf(fid, '%-45s %-8s %s\n', results(k).name, r, results(k).detail);
 end
 end
 
