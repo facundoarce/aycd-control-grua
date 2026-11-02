@@ -29,6 +29,7 @@ for k = 1:numel(names)
     catch err
         summary(k).error = err.message;
         fprintf(2, 'Error en %s: %s\n', names{k}, err.message);
+        print_causes(err, 1);
     end
 end
 
@@ -58,5 +59,14 @@ for k = 1:numel(summary)
         [~, base] = fileparts(s.file);
         fprintf(fid, '%-35s %-10s %d/%d  %s\n', s.name, r, s.passed, s.total, base);
     end
+end
+end
+
+function print_causes(err, level)
+% Imprime las causas del error (sim agrupa los errores de compilación en
+% "Error due to multiple causes" sin el detalle)
+for k = 1:numel(err.cause)
+    fprintf(2, '%s- %s\n', repmat('  ', 1, level), err.cause{k}.message);
+    print_causes(err.cause{k}, level + 1);
 end
 end
