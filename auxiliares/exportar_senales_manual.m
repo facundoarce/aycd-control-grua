@@ -23,6 +23,7 @@ planta = [modelo '/Planta física'];
 cmd    = [modelo '/Controladores/Comandos de operador'];
 n2     = [modelo '/Controladores/Controladores de movimiento (Nivel 2)'];
 sway   = [n2 '/Controlador de ángulo de balanceo'];
+sway_pd = [sway '/Controlador PD con ' newline 'ganancias programadas'];
 
 % Variable en el .mat | Bloque | Puerto de salida
 senales = {
@@ -60,9 +61,9 @@ senales = {
     'x_td_dot',     planta, 18  % velocidad del tambor de carro (actualizar_controladores_velocidad.m)
     'x_td',         planta, 19  % posición del tambor de carro, encoder del motor (medir_carro_en_tambor.m)
     'T_mt_ref',     n2,     1   % consigna de torque del motor de carro
-    'nu',           [sway '/Sum'], 1  % entrada virtual del control de balanceo
+    'nu',           sway_pd, 1  % entrada virtual del control de balanceo
     'a_theta',      [sway '/Linealización por realimentación'], 1  % (actualizar_balanceo_velocidad.m)
-    'dv_t_th',      [n2 '/Habilitación del control de ángulo de balanceo'], 1  % corrección de v_t*
+    'dv_t_th',      sway,   1  % corrección de v_t*
     };
 
 % Por defecto: variable out del workspace base (la que deja la simulación)
@@ -78,6 +79,11 @@ end
 if ischar(arg) && strcmp(arg, 'registrar')
     load_system(modelo);
     for k = 1:size(senales, 1)
+        if getSimulinkBlockHandle(senales{k, 2}) == -1
+            warning('%s: no existe el bloque %s (no se registra).', ...
+                senales{k, 1}, strrep(senales{k, 2}, newline, ' '));
+            continue
+        end
         ph = get_param(senales{k, 2}, 'PortHandles');
         if senales{k, 3} > numel(ph.Outport)
             warning('%s: %s no tiene salida %d (no se registra).', ...

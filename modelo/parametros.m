@@ -258,24 +258,24 @@ F_h_eq_max = 2 * T_hm_MAX * i_h / r_hd;  % [N]
 % th: theta (relacionado a balanceo de la carga)
 
 % Controlador de balanceo de la carga: PD alrededor del equilibrio dinámico
-% (guía 4.2), sin acción integral (k_p3_th = 0 => K_i_th = 0): con integral y
-% consigna theta = 0 el control cancelaba la aceleración pedida por el operador.
+% (guía 4.2), sin acción integral: con integral y consigna theta = 0 el control
+% cancelaba la aceleración pedida por el operador.
+% K_p_th = w_c_th^2, K_d_th = 2*xi_c_th*w_c_th (PID general con tercer polo
+% p3 = 0, informe sección 5)
 % Con w_c_th = w_n_th el control no cambia la rigidez del péndulo y equivale a
 % inyectar amortiguamiento: a_theta ~ (2*xi*sqrt(g*l_h) - 2*l_h_dot)*theta_dot
 % w_c_th = k_w_c_th * w_n_th
 % w_c_th: frecuencia natural deseada del subsistema a lazo cerrado
 % w_n_th: frecuencia natural del subsistema físico a lazo abierto
 k_w_c_th = 1;   % [-] factor de frecuencia natural deseada del subsistema a lazo cerrado
-% p3_th = k_p3_th * w_c_th
-% p3_th: tercer polo del susbsistema a lazo cerrado (0: controlador PD)
-k_p3_th = 0;    % [-] factor del tercer polo a lazo cerrado
 xi_c_th = 1;    % [-] factor de amortiguamiento deseado (crítico, guía 4.2)
 k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre actuación del carro
 
 % Corrección de la consigna de velocidad del carro por balanceo: la aceleración
-% a_theta (linealización por realimentación) se satura en a_t_max y se integra
-% con fuga: d(dv_t_th)/dt = a_theta - dv_t_th/tau_w_th
-tau_w_th = 10;                % [s] constante de tiempo de la fuga (washout) de la corrección
+% a_theta (linealización por realimentación) se satura en a_t_max y se integra:
+% d(dv_t_th)/dt = a_theta. 
+% El integrador se reinicia en retención (freno de carro cerrado sin pedido
+% de movimiento) y con la carga apoyada
 dv_t_th_max = 0.25 * v_t_max; % [m/s] corrección máxima de la consigna de velocidad del carro
 
 % Subida limitada con balanceo grande (función limit_v_h del supervisor):
