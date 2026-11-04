@@ -7,6 +7,9 @@ T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (cont
 T_s2 = 1/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
 T_anim = 200/1000;  % [s] Período de refresco de la animación de la grúa (sólo visualización)
 modo_comandos = 1;  % Comandos de operador: 1 = joystick; 2 = escenario (cmd_* en el workspace, ver correr_escenario.m)
+brake_model = 3;    % Modelo de freno cerrado: 1 = saturación de -b*w en +/-T_max (guía Ec. 6.g, 6.h, 7.h);
+                    % 2 = -T_max*tanh(b*w) (nota de la guía, tal como está escrita: pendiente T_max*b en w = 0, simula ~6 veces más lento);
+                    % 3 = -T_max*tanh(b*w/T_max) (alternativa continua con pendiente b en w = 0 y máximo T_max; resultados equivalentes a 1)
 
 %% SISTEMA DE IZAJE
 Y_t0 = 45.0;        % [m] altura (fija) de poleas de suspensión de izaje en el carro
@@ -176,7 +179,8 @@ g.CoderInfo.StorageClass = 'SimulinkGlobal';
 M_s = 15000;        %% [kg] masa de spreader + headblock (sin container)
 M_c_max = 50000;    %% [kg] masa de container máxima (totalmente cargado)
 M_c_min = 2000;     %% [kg] masa de container mínima (vacío, sin carga)
-overload = false;   % [bool] condición de sobrecarga para simulación. Setear en "true" para simular M_cx > M_c_max
+overload = false;   % [bool] condición de sobrecarga para simulación. Setear en "true" para simular M_cx > M_c_max (M_cx en [1.05, 1.25]*M_c_max)
+load_seed = 1;      % [-] semilla del sorteo de masa de contenedores: >= 0, secuencia reproducible; < 0, distinta en cada simulación (rng('shuffle'))
 
 % Umbral de carga apoyada/suspendida (supervisor nivel 1 y controladores nivel 2)
 F_hw_min = M_s * g.Value / 2;  % [N] tensión del cable de izaje con el spreader vacío suspendido (valor por debajo significa carga apoyada)

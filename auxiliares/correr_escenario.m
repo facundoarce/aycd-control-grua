@@ -21,6 +21,8 @@ function varargout = correr_escenario(scenario_name, varargin)
 %                    cada valor se mantiene hasta la fila siguiente
 %       check        (opcional) @(d) -> struct array con campos name, ok, detail;
 %                    d son las señales exportadas (timeseries)
+%       parametros   (opcional) struct con variables que reemplazan a las de
+%                    parametros.m sólo en este escenario (ej. overload = true)
 %
 %   Requiere el subsistema "Comandos de operador" (agregar_comandos_variantes.m).
 %   Al terminar, modo_comandos vuelve a 1 y se restaura la sincronización con
@@ -36,14 +38,24 @@ root_dir = fullfile(fileparts(mfilename('fullpath')), '..');
 addpath(fullfile(root_dir, 'tmp', 'escenarios'));
 
 %% Parámetros y escenario
+% Orden: parametros.m, parámetros propios del escenario y los de la opción
+% 'parametros' (que tienen prioridad)
 evalin('base', 'parametros');
+scen = feval(scenario_name);
+prm = struct();
+if isfield(scen, 'parametros')
+    prm = scen.parametros;
+end
 names = fieldnames(opts.parametros);
 for k = 1:numel(names)
-    assignin('base', names{k}, opts.parametros.(names{k}));
-    fprintf('%s = %s (en lugar del valor de parametros.m)\n', names{k}, ...
-        mat2str(opts.parametros.(names{k})));
+    prm.(names{k}) = opts.parametros.(names{k});
 end
-scen = feval(scenario_name);
+names = fieldnames(prm);
+for k = 1:numel(names)
+    assignin('base', names{k}, prm.(names{k}));
+    fprintf('%s = %s (en lugar del valor de parametros.m)\n', names{k}, ...
+        mat2str(prm.(names{k})));
+end
 t = scen.steps(:, 1);
 assignin('base', 'cmd_translation', timeseries(scen.steps(:, 2), t));
 assignin('base', 'cmd_hoist', timeseries(scen.steps(:, 3), t));
