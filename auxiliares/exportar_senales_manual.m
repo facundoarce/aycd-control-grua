@@ -42,6 +42,7 @@ senales = {
     'v_h_ref',      sup,    2
     'm_estimated',  sup,    7  % requiere agregar_salida_m_estimated.m
     'overload_alarm', sup,  8  % alarma de sobrecarga (agregar_sobrecarga_potencia_constante.m)
+    'slack_rope',   sup,    9  % cable flojo (mover_estimacion_cable_flojo_a_monitor.m)
     'v_t_ref',      sup,    1
     'BRK_t',        sup,    5
     'T_tm',         planta, 13  % torque del motor de carro (agregar_T_tm_sensor_bus.m)
