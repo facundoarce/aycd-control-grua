@@ -2,7 +2,8 @@ function varargout = exportar_senales_manual(arg, archivo)
 %EXPORTAR_SENALES_MANUAL Exporta las señales para analizar izaje y traslación manual.
 %   exportar_senales_manual('registrar')
 %       Activa el registro (DataLogging) de todas las señales de la tabla en
-%       sistema_completo. No guarda el modelo.
+%       sistema_completo. No guarda el modelo: guardarlo para que el registro
+%       quede activo en las corridas siguientes.
 %   archivo = exportar_senales_manual
 %   archivo = exportar_senales_manual(out)
 %   archivo = exportar_senales_manual(out, archivo)
@@ -43,6 +44,7 @@ senales = {
     'm_estimated',  sup,    7  % requiere agregar_salida_m_estimated.m
     'overload_alarm', sup,  8  % alarma de sobrecarga (agregar_sobrecarga_potencia_constante.m)
     'slack_rope',   sup,    9  % cable flojo (mover_estimacion_cable_flojo_a_monitor.m)
+    'liftoff_blocked', sup, 10  % despegue bloqueado por desalineación (agregar_aviso_despegue_bloqueado.m)
     'v_t_ref',      sup,    1
     'BRK_t',        sup,    5
     'T_tm',         planta, 13  % torque del motor de carro (agregar_T_tm_sensor_bus.m)
@@ -148,8 +150,22 @@ faltantes = {};
 for k = 1:size(senales, 1)
     idx = find(strcmp(bloques, senales{k, 2}) & puertos == senales{k, 3});
     if isempty(idx)
-        faltantes{end + 1} = senales{k, 1}; %#ok<AGROW>
-        continue
+        % Salida de un subsistema virtual: Simulink puede asignar la señal al
+        % bloque de origen dentro del subsistema. Si hay un solo elemento
+        % registrado dentro del bloque, se usa ese
+        dentro = find(strncmp(bloques, [senales{k, 2} '/'], numel(senales{k, 2}) + 1));
+        if numel(dentro) == 1
+            fprintf('%s: se usa la señal registrada en %s, puerto %d\n', senales{k, 1}, ...
+                strrep(bloques{dentro}, newline, ' '), puertos(dentro));
+            idx = dentro;
+        else
+            for i = dentro(:).'
+                fprintf('%s: registrada en %s, puerto %d (no coincide con la tabla)\n', ...
+                    senales{k, 1}, strrep(bloques{i}, newline, ' '), puertos(i));
+            end
+            faltantes{end + 1} = senales{k, 1}; %#ok<AGROW>
+            continue
+        end
     end
     if numel(idx) > 1
         warning('%s: %d elementos registrados, se usa el primero.', senales{k, 1}, numel(idx));
@@ -158,8 +174,8 @@ for k = 1:size(senales, 1)
 end
 
 if ~isempty(faltantes)
-    warning(['Señales no registradas: %s.\nEjecutar exportar_senales_manual(''registrar'') ' ...
-        'y volver a simular.'], strjoin(faltantes, ', '));
+    warning(['Señales no registradas: %s.\nEjecutar exportar_senales_manual(''registrar''), ' ...
+        'guardar el modelo y volver a simular.'], strjoin(faltantes, ', '));
 end
 assert(~isempty(fieldnames(datos)), 'Ninguna señal de la tabla está en logsout.');
 

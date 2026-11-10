@@ -1,4 +1,4 @@
-function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contacto, m_estimated, ignorar_on)
+function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contacto, m_estimated, liftoff_blocked, ignorar_on)
 %ANIMAR_GRUA Dibuja la grúa, la carga y el perfil de obstáculos durante la simulación.
 %   Se llama como función extrínseca desde el bloque MATLAB Function
 %   "Animación" de sistema_completo (agregado con agregar_animacion.m).
@@ -6,7 +6,8 @@ function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contac
 %   de la carga (base del spreader), ángulo de balanceo, estado de twistlocks,
 %   vector de perfil de obstáculos (un valor por slot), contacto de la carga
 %   con el perfil (apoyada) y masa de la carga estimada por el supervisor
-%   (NaN si no se conoce, p. ej. en corridas exportadas sin esa señal).
+%   (NaN si no se conoce, p. ej. en corridas exportadas sin esa señal) y
+%   aviso de despegue bloqueado por desalineación carro-carga (false si falta).
 %
 %   Los parámetros geométricos se leen del workspace base (parametros.m).
 %   Para desactivar la animación sin tocar el modelo: animacion_on = false
@@ -22,6 +23,9 @@ persistent S
 
 fig = [];
 if nargin < 11
+    liftoff_blocked = false;
+end
+if nargin < 12
     ignorar_on = false;
 end
 if ~ignorar_on && evalin('base', 'exist(''animacion_on'', ''var'') && ~animacion_on')
@@ -58,8 +62,9 @@ set(S.texto, 'String', sprintf(['t = %6.1f s\n' ...
     'x_t = %6.2f m   v_t = %5.2f m/s\n' ...
     'x_l = %6.2f m   y_l = %6.2f m\n' ...
     '\\theta_l = %5.1f°   TLK = %d   contacto = %d\n' ...
-    'masa: %s'], ...
-    t, x_t, x_t_dot, x_l, y_l, theta_l * 180 / pi, TLK, contacto, texto_masa(m_estimated)));
+    'masa: %s%s'], ...
+    t, x_t, x_t_dot, x_l, y_l, theta_l * 180 / pi, TLK, contacto, texto_masa(m_estimated), ...
+    texto_despegue(liftoff_blocked)));
 
 drawnow limitrate;
 end
@@ -159,6 +164,15 @@ elseif m_estimated
     s = 'estimada';
 else
     s = 'estimando (traslación bloqueada)';
+end
+end
+
+function s = texto_despegue(liftoff_blocked)
+% Aviso de despegue bloqueado (izaje pedido con la carga desalineada del carro)
+if liftoff_blocked
+    s = sprintf('\nDESPEGUE BLOQUEADO: alinear el carro sobre la carga');
+else
+    s = '';
 end
 end
 

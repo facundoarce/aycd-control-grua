@@ -59,6 +59,12 @@ if isfield(d, 'm_estimated')
 else
     m_est = nan(size(t(:)));
 end
+% Aviso de despegue bloqueado (exportado desde 2026-11-09; false si falta)
+if isfield(d, 'liftoff_blocked')
+    lift_blk = muestrear(d.liftoff_blocked, t) > 0.5;
+else
+    lift_blk = false(size(t(:)));
+end
 
 % Perfil de obstáculos: vector por slot (exportado desde 2026-10-10)
 if isfield(d, 'y_c0')
@@ -79,7 +85,7 @@ gif = fullfile(carpeta, [nombre '_animacion.gif']);
 tic;
 for k = 1:numel(t)
     fig = animar_grua(t(k), x_t(k), x_t_dot(k), x_l(k), y_l(k), theta_l(k), ...
-        TLK(k), y_c0(k, :), cont(k), m_est(k), true);
+        TLK(k), y_c0(k, :), cont(k), m_est(k), lift_blk(k), true);
     if k == 1
         % Tamaño fijo (la figura se crea maximizada) y esperar a que la
         % ventana lo tome antes de fijar el tamaño del GIF con el primer cuadro
