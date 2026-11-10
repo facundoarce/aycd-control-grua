@@ -45,6 +45,7 @@ senales = {
     'overload_alarm', sup,  8  % alarma de sobrecarga (agregar_sobrecarga_potencia_constante.m)
     'slack_rope',   sup,    9  % cable flojo (mover_estimacion_cable_flojo_a_monitor.m)
     'liftoff_blocked', sup, 10  % despegue bloqueado por desalineación (agregar_aviso_despegue_bloqueado.m)
+    'below_sill',   sup,    11  % base de la carga debajo de Y_sb (agregar_viga_testera_nivel2.m)
     'v_t_ref',      sup,    1
     'BRK_t',        sup,    5
     'T_tm',         planta, 13  % torque del motor de carro (agregar_T_tm_sensor_bus.m)
@@ -141,31 +142,27 @@ for i = 1:n
     if ~isa(el, 'Simulink.SimulationData.Signal') || el.BlockPath.getLength() == 0
         continue
     end
-    bloques{i} = el.BlockPath.getBlock(el.BlockPath.getLength());
+    % Los saltos de línea de los nombres de bloque se comparan como espacios: la
+    % ruta registrada puede traerlos así (p. ej. "Controlador PD con
+    % ganancias programadas", señal nu)
+    bloques{i} = strrep(el.BlockPath.getBlock(el.BlockPath.getLength()), newline, ' ');
     puertos(i) = el.PortIndex;
 end
 
 datos = struct();
 faltantes = {};
 for k = 1:size(senales, 1)
-    idx = find(strcmp(bloques, senales{k, 2}) & puertos == senales{k, 3});
+    bloque = strrep(senales{k, 2}, newline, ' ');
+    idx = find(strcmp(bloques, bloque) & puertos == senales{k, 3});
     if isempty(idx)
-        % Salida de un subsistema virtual: Simulink puede asignar la señal al
-        % bloque de origen dentro del subsistema. Si hay un solo elemento
-        % registrado dentro del bloque, se usa ese
-        dentro = find(strncmp(bloques, [senales{k, 2} '/'], numel(senales{k, 2}) + 1));
-        if numel(dentro) == 1
-            fprintf('%s: se usa la señal registrada en %s, puerto %d\n', senales{k, 1}, ...
-                strrep(bloques{dentro}, newline, ' '), puertos(dentro));
-            idx = dentro;
-        else
-            for i = dentro(:).'
-                fprintf('%s: registrada en %s, puerto %d (no coincide con la tabla)\n', ...
-                    senales{k, 1}, strrep(bloques{i}, newline, ' '), puertos(i));
-            end
-            faltantes{end + 1} = senales{k, 1}; %#ok<AGROW>
-            continue
+        % Elementos registrados dentro del bloque: se informan para corregir la tabla
+        dentro = find(strncmp(bloques, [bloque '/'], numel(bloque) + 1));
+        for i = dentro(:).'
+            fprintf('%s: registrada en %s, puerto %d (no coincide con la tabla)\n', ...
+                senales{k, 1}, bloques{i}, puertos(i));
         end
+        faltantes{end + 1} = senales{k, 1}; %#ok<AGROW>
+        continue
     end
     if numel(idx) > 1
         warning('%s: %d elementos registrados, se usa el primero.', senales{k, 1}, numel(idx));
