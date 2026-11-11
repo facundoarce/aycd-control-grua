@@ -48,6 +48,7 @@ senales = {
     'below_sill',   sup,    11  % base de la carga debajo de Y_sb (agregar_viga_testera_nivel2.m)
     'v_t_ref',      sup,    1
     'BRK_t',        sup,    5
+    'BRK_h',        sup,    6   % freno de operación de izaje
     'T_tm',         planta, 13  % torque del motor de carro (agregar_T_tm_sensor_bus.m)
     'ls_t_min',     planta, 14  % fines de carrera de operación (agregar_fines_carrera_sensor_bus.m)
     'ls_t_max',     planta, 15
@@ -66,6 +67,7 @@ senales = {
     'x_td_dot',     planta, 18  % velocidad del tambor de carro (actualizar_controladores_velocidad.m)
     'x_td',         planta, 19  % posición del tambor de carro, encoder del motor (medir_carro_en_tambor.m)
     'T_mt_ref',     n2,     1   % consigna de torque del motor de carro
+    'T_mh_ref',     n2,     2   % consigna de torque del motor de izaje
     'nu',           sway_pd, 1  % entrada virtual del control de balanceo
     'a_theta',      [sway '/Linealización por realimentación'], 1  % (actualizar_balanceo_velocidad.m)
     'dv_t_th',      sway,   1  % corrección de v_t*
