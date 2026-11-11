@@ -281,6 +281,13 @@ k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre 
 % El integrador se reinicia en retención (freno de carro cerrado sin pedido
 % de movimiento) y con la carga apoyada
 dv_t_th_max = 0.25 * v_t_max; % [m/s] corrección máxima de la consigna de velocidad del carro
+% Decaimiento del residual: con amplitud de balanceo menor que theta_l_brk, la
+% corrección vuelve a cero con aceleración a_dv_th_dec (el residual de un
+% integrador puro mantenía al carro en movimiento sin consigna y el freno no
+% cerraba). Con k_w_c_th = 1, el carro y la carga frenan juntos con un ángulo
+% de equilibrio a_dv_th_dec/g = 0.6°, menor que theta_l_brk. Valor inicial, a
+% ajustar con las pruebas
+a_dv_th_dec = 0.125 * a_t_max; % [m/s^2] aceleración de decaimiento de la corrección (0.1 m/s^2)
 
 % Subida limitada con balanceo grande (función limit_v_h del supervisor):
 % acortar el cable amplifica la amplitud del balanceo (~l^(-3/4)). Cerca de los
