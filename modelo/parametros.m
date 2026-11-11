@@ -271,7 +271,12 @@ F_h_eq_max = 2 * T_hm_MAX * i_h / r_hd;  % [N]
 % w_c_th = k_w_c_th * w_n_th
 % w_c_th: frecuencia natural deseada del subsistema a lazo cerrado
 % w_n_th: frecuencia natural del subsistema físico a lazo abierto
-k_w_c_th = 1;   % [-] factor de frecuencia natural deseada del subsistema a lazo cerrado
+% Con k_w_c_th = 1 (sólo amortiguamiento) el carro acompañaba a la carga en su
+% oscilación al detenerse: corrida manual 2026-11-10 21:11, soltando a 1.7 m/s
+% con l_h = 57 m el carro avanzó 7.5 m y retrocedió 5 m (22 s hasta cerrar el
+% freno). Con k_w_c_th = 1.5 el control agrega rigidez y la carga se detiene
+% más cerca del carro (modelo simplificado: ~4.5 m y quieto en ~15 s)
+k_w_c_th = 1.5; % [-] factor de frecuencia natural deseada del subsistema a lazo cerrado
 xi_c_th = 1;    % [-] factor de amortiguamiento deseado (crítico, guía 4.2)
 k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre actuación del carro
 
@@ -280,13 +285,21 @@ k_th = 1;     % [-] factor de ponderación de control de balanceo de carga sobre 
 % d(dv_t_th)/dt = a_theta. 
 % El integrador se reinicia en retención (freno de carro cerrado sin pedido
 % de movimiento) y con la carga apoyada
-dv_t_th_max = 0.25 * v_t_max; % [m/s] corrección máxima de la consigna de velocidad del carro
+% Se satura la salida del integrador, no su estado: la integral de a_theta
+% sigue al ángulo (~2*sqrt(g*l_h)*theta con k_w_c_th = 1) y, si se recorta el
+% estado, al volver theta a cero queda una corrección opuesta que hace
+% retroceder al carro. El estado se limita como protección contra la saturación
+% prolongada (con k_w_c_th > 1, un ángulo sostenido hace crecer el estado):
+% cuanto mayor el límite, más tarda en descargarse antes de salir de saturación
+dv_t_th_max = 0.25 * v_t_max; % [m/s] corrección máxima de la consigna de velocidad del carro (salida)
+dv_t_th_int_max = v_t_max; % [m/s] límite del estado del integrador de corrección
 % Decaimiento del residual: con amplitud de balanceo menor que theta_l_brk, la
 % corrección vuelve a cero con aceleración a_dv_th_dec (el residual de un
 % integrador puro mantenía al carro en movimiento sin consigna y el freno no
-% cerraba). Con k_w_c_th = 1, el carro y la carga frenan juntos con un ángulo
-% de equilibrio a_dv_th_dec/g = 0.6°, menor que theta_l_brk. Valor inicial, a
-% ajustar con las pruebas
+% cerraba). Con k_w_c_th = 1.5, el término de rigidez 1.25*g*theta se opone al
+% decaimiento: el carro y la carga frenan juntos a a_dv_th_dec/2.25 con un
+% ángulo de equilibrio a_dv_th_dec/(2.25*g) = 0.26°, menor que theta_l_brk.
+% Valor inicial, a ajustar con las pruebas
 a_dv_th_dec = 0.125 * a_t_max; % [m/s^2] aceleración de decaimiento de la corrección (0.1 m/s^2)
 
 % Subida limitada con balanceo grande (función limit_v_h del supervisor):
