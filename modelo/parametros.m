@@ -5,7 +5,7 @@ clear variables;
 T_s0 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 0 (control de seguridad)
 T_s1 = 20/1000;     % [s] Tiempo de muestreo de sistema de control nivel 1 (control supervisor)
 T_s2 = 1/1000;      % [s] Tiempo de muestreo de sistema de control nivel 2 (control regulatorio)
-T_anim = 200/1000;  % [s] Período de refresco de la animación de la grúa (sólo visualización)
+T_anim = 50/1000;   % [s] Período de refresco de la animación de la grúa (sólo visualización): 20 cuadros/s, el máximo de drawnow limitrate (antes 200 ms, 5 cuadros/s)
 modo_comandos = 1;  % Comandos de operador: 1 = joystick; 2 = escenario (cmd_* en el workspace, ver correr_escenario.m)
 brake_model = 3;    % Modelo de freno cerrado: 1 = saturación de -b*w en +/-T_max (guía Ec. 6.g, 6.h, 7.h);
                     % 2 = -T_max*tanh(b*w) (nota de la guía, tal como está escrita: pendiente T_max*b en w = 0, simula ~6 veces más lento);

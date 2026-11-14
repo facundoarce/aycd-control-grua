@@ -17,9 +17,17 @@ function fig = animar_grua(t, x_t, x_t_dot, x_l, y_l, theta_l, TLK, y_c0, contac
 %   handle de la figura para capturar los cuadros.
 %
 %   El carro y el spreader se dibujan en forma esquemática: sus dimensiones
-%   sólo son de visualización (no son parámetros del modelo).
+%   sólo son de visualización (no son parámetros del modelo). La viga testera
+%   se dibuja en el borde del muelle (x = 0) con su borde superior en Y_sb: la
+%   base de la carga no puede cruzar x = 0 por debajo de esa altura (función
+%   limit_v_t del supervisor y limitación de la consigna corregida del Nivel 2).
+%
+%   Rendimiento: el período de llamada es T_anim (parametros.m). Cada cuadro
+%   sólo actualiza las propiedades de los objetos móviles; animacion_on se lee
+%   del workspace base una vez por simulación, el texto se dibuja sin
+%   intérprete TeX y los ejes no tienen interactividad ni límites automáticos.
 
-persistent S
+persistent S anim_on t_last
 
 fig = [];
 if nargin < 11
@@ -28,7 +36,13 @@ end
 if nargin < 12
     ignorar_on = false;
 end
-if ~ignorar_on && evalin('base', 'exist(''animacion_on'', ''var'') && ~animacion_on')
+% animacion_on se consulta al empezar cada simulación (evalin es lento para
+% llamarlo en cada cuadro)
+if isempty(anim_on) || isempty(t_last) || t < t_last
+    anim_on = ~evalin('base', 'exist(''animacion_on'', ''var'') && ~animacion_on');
+end
+t_last = t;
+if ~ignorar_on && ~anim_on
     return
 end
 
@@ -58,13 +72,14 @@ if ~isequal(y_c0(:), S.y_c0)
     actualizar_perfil(S);
 end
 
+% Texto sin intérprete (más rápido que TeX); theta como carácter Unicode
 set(S.texto, 'String', sprintf(['t = %6.1f s\n' ...
     'x_t = %6.2f m   v_t = %5.2f m/s\n' ...
     'x_l = %6.2f m   y_l = %6.2f m\n' ...
-    '\\theta_l = %5.1f°   TLK = %d   contacto = %d\n' ...
+    '%s_l = %5.1f°   TLK = %d   contacto = %d\n' ...
     'masa: %s%s'], ...
-    t, x_t, x_t_dot, x_l, y_l, theta_l * 180 / pi, TLK, contacto, texto_masa(m_estimated), ...
-    texto_despegue(liftoff_blocked)));
+    t, x_t, x_t_dot, x_l, y_l, char(952), theta_l * 180 / pi, TLK, contacto, ...
+    texto_masa(m_estimated), texto_despegue(liftoff_blocked)));
 
 drawnow limitrate;
 end
@@ -83,6 +98,7 @@ y_quay = p('y_c0_quay');
 y_ship = p('y_c0_ship');
 x_min_oper = p('x_t_min_oper');
 x_max_oper = p('x_t_max_oper');
+Y_sb = p('Y_sb');
 
 S.x_edges = x_slot0 + (0:N) * S.W_c;
 x_centros = S.x_edges(1:end-1) + S.W_c / 2;
@@ -96,8 +112,12 @@ y_max = S.Y_t0 + 4;
 x_lim = [S.x_edges(1) S.x_edges(end)] + [-5 5];
 
 S.fig = figure('Name', 'Animación grúa', 'NumberTitle', 'off', 'Color', 'w', ...
-    'WindowState', 'maximized');
-S.ax = axes(S.fig);
+    'WindowState', 'maximized', 'Renderer', 'opengl');
+% Ejes fijos: límites y relación de aspecto manuales y orden de dibujo según
+% la creación, para que cada cuadro no recalcule el diseño de los ejes
+S.ax = axes(S.fig, 'SortMethod', 'childorder', 'XLimMode', 'manual', ...
+    'YLimMode', 'manual', 'ZLimMode', 'manual', 'DataAspectRatioMode', 'manual', ...
+    'XTickMode', 'manual', 'YTickMode', 'manual');
 hold(S.ax, 'on');
 
 % Cuadrícula de fondo W_c x H_c referida a la base de cada lado
@@ -116,6 +136,15 @@ plot(S.ax, [0 x_lim(2)], [y_ship y_ship], 'Color', [0.00 0.30 0.65], ...
     'LineWidth', 4, 'DisplayName', 'Base barco');
 plot(S.ax, [0 0], [y_min y_quay], 'Color', [0.35 0.35 0.35], 'LineWidth', 2, ...
     'HandleVisibility', 'off');
+
+% Viga testera (sill beam) en el borde del muelle: la base de la carga sólo
+% cruza x = 0 por encima de Y_sb (despeje mínimo, guía 3.1). Sección
+% esquemática; ancho sólo de visualización
+w_sb = 0.6;   % [m] ancho dibujado de la viga testera y su apoyo
+patch(S.ax, [-w_sb 0 0 -w_sb], [y_quay y_quay Y_sb Y_sb], [0.45 0.45 0.45], ...
+    'EdgeColor', [0.20 0.20 0.20], 'DisplayName', 'Viga testera');
+text(S.ax, 0.5, Y_sb + 0.8, sprintf('Y_sb = %.1f m', Y_sb), 'Interpreter', 'none', ...
+    'FontSize', 8, 'Color', [0.30 0.30 0.30]);
 
 % Viga del carro y límites de operación de traslación
 plot(S.ax, x_lim, [S.Y_t0 S.Y_t0], 'k', 'LineWidth', 1.5, 'HandleVisibility', 'off');
@@ -141,16 +170,24 @@ S.carga = patch(S.ax, zeros(1, 4), zeros(1, 4), [0.15 0.55 0.85], ...
     'EdgeColor', [0.05 0.25 0.45], 'Visible', 'off', 'HandleVisibility', 'off');
 
 S.texto = text(S.ax, x_lim(1) + 1, y_max - 1, '', 'VerticalAlignment', 'top', ...
-    'FontName', 'FixedWidth', 'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7]);
+    'FontName', 'FixedWidth', 'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7], ...
+    'Interpreter', 'none');
 
 hold(S.ax, 'off');
 box(S.ax, 'on');
 axis(S.ax, 'equal');
 xlim(S.ax, x_lim);
 ylim(S.ax, [y_min y_max]);
+xticks(S.ax, ceil(x_lim(1) / 10) * 10 : 10 : x_lim(2));
+yticks(S.ax, ceil(y_min / 10) * 10 : 10 : y_max);
 xlabel(S.ax, 'x [m]');
 ylabel(S.ax, 'y [m]');
-legend(S.ax, 'Location', 'northeast');
+% Leyenda fija: sin actualización automática al cambiar los objetos
+legend(S.ax, 'Location', 'northeast', 'AutoUpdate', 'off');
+% Sin interactividad de los ejes (zoom/desplazamiento con el mouse y barra de
+% herramientas), que agrega trabajo en cada cuadro
+disableDefaultInteractivity(S.ax);
+S.ax.Toolbar.Visible = 'off';
 
 S.y_c0 = y_c0(:);
 actualizar_perfil(S);
