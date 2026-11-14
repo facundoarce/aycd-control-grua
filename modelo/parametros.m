@@ -236,6 +236,59 @@ K_iv_t = w_tc^2*m_t_eq;                       % [N/m] ganancia integral
 % Anti-windup: fuerza equivalente máxima del accionamiento de carro
 F_t_eq_max = T_tm_max * i_t / r_td;  % [N]
 
+% Observador y realimentación de estados del accionamiento del carro
+% El PI sobre v_td (doc. 4) deja poco amortiguado el modo del carro sobre su
+% cable (sqrt(K_tw/M_t) ~ 4 rad/s, xi ~ 0.2), y la derivada del control de
+% balanceo lo inestabiliza (escenario_balanceo_cable_corto: oscilación de
+% ~1.75 s de período, ±0.6-0.85 m/s). Además, con el cable corto el lazo de
+% balanceo (w_c_th = 1.5 w_n_th, 2.1 rad/s con 5 m) queda demasiado cerca del
+% lazo de velocidad (3.6 rad/s). Se reemplaza el PI por realimentación de los
+% estados del accionamiento (Ec. 7) con acción integral sobre la velocidad del
+% carro, estimados con un observador de Luenberger (guía: los estados pueden
+% medirse o estimarse con observadores):
+%   estados x = [d; v_td; v_t], d = x_td - x_t (estiramiento del cable de carro)
+%   medición y = v_td (encoder del motor)
+%   entradas F_t_eq (fuerza del motor referida al tambor) y la fuerza
+%   horizontal de la carga 2*F_hw*sin(theta_l) (celda de carga y cámara)
+%   F_t_eq = -K_t_sf * [d; v_td; v_t; integral(v_t - v_t_ref)]
+% Polos de diseño (análisis lineal y simulación simplificada con muestreo
+% T_s2 y retención, DIARIO 2026-11-12): con los modos rígido y del cable en
+% 10 rad/s, el balanceo con k_w_c_th = 1.5 es estable de l_h = 60 m a 5 m;
+% fuerza máx. ~105 kN (F_t_eq_max = 240 kN). El compensador (observador +
+% realimentación) tiene ganancia alta en v_td a frecuencias altas: con el
+% modo rígido en 12 rad/s y el observador en 40 rad/s, el lazo del tambor
+% cruzaba cerca de los retardos del muestreo (T_s2, modulador de torque) y la
+% fuerza quedaba saturada en un ciclo límite de ~20 Hz (corrida 2026-11-12
+% 01:15). Con el observador en 13 rad/s queda margen: sin saturar hasta 20 rad/s
+w_t_rig = 10;     % [rad/s] frecuencia natural deseada del modo rígido (velocidad del carro)
+xi_t_rig = 0.9;   % [-] amortiguamiento deseado del modo rígido
+w_t_rope = 10;    % [rad/s] frecuencia natural deseada del modo del cable de carro
+xi_t_rope = 0.7;  % [-] amortiguamiento deseado del modo del cable de carro
+w_t_obs = 13;     % [rad/s] módulo de los polos del observador (ver margen arriba)
+
+A_t_obs = [0, 1, -1
+           -K_tw/m_td_eq, -(b_td_eq + b_tw)/m_td_eq, b_tw/m_td_eq
+           K_tw/M_t.Value, b_tw/M_t.Value, -(b_tw + b_t)/M_t.Value];
+B_t_obs = [0, 0
+           1/m_td_eq, 0
+           0, 1/M_t.Value];  % entradas [F_t_eq; 2*F_hw*sin(theta_l)]
+C_t_obs = [0, 1, 0];         % medición v_td
+
+% Ganancias de realimentación de estados (Ackermann sobre la planta aumentada
+% con la integral de v_t - v_t_ref)
+A_t_aug = [A_t_obs, zeros(3, 1); 0, 0, 1, 0];
+B_t_aug = [B_t_obs(:, 1); 0];
+p_t_sf = [roots([1, 2*xi_t_rig*w_t_rig, w_t_rig^2])
+          roots([1, 2*xi_t_rope*w_t_rope, w_t_rope^2])];
+Co_t = [B_t_aug, A_t_aug*B_t_aug, A_t_aug^2*B_t_aug, A_t_aug^3*B_t_aug];
+K_t_sf = [0, 0, 0, 1] / Co_t * real(polyvalm(poly(p_t_sf), A_t_aug));  % [N/m, N/(m/s), N/(m/s), N/m]
+
+% Ganancias del observador (Ackermann sobre el sistema dual)
+p_t_obs = w_t_obs * [-1; -0.8 + 0.6i; -0.8 - 0.6i];
+Ob_t = [C_t_obs; C_t_obs*A_t_obs; C_t_obs*A_t_obs^2];
+L_t_obs = real(polyvalm(poly(p_t_obs), A_t_obs)) / Ob_t * [0; 0; 1];
+clear A_t_aug B_t_aug Co_t Ob_t
+
 
 % ===================== Control de izaje de la carga ======================
 
@@ -301,6 +354,25 @@ dv_t_th_int_max = v_t_max; % [m/s] límite del estado del integrador de correcció
 % ángulo de equilibrio a_dv_th_dec/(2.25*g) = 0.26°, menor que theta_l_brk.
 % Valor inicial, a ajustar con las pruebas
 a_dv_th_dec = 0.125 * a_t_max; % [m/s^2] aceleración de decaimiento de la corrección (0.1 m/s^2)
+% Sin consigna (v_t* = 0 y a_t_ref = 0): el lazo de ángulo no ve la velocidad
+% común de carro y carga, y la corrección puede quedar en un valor que mueve
+% a ambos juntos con ángulo casi nulo (modo neutro del integrador). El
+% decaimiento anterior lo frena a a_dv_th_dec/2.25 ~ 0.04 m/s^2 (corrida
+% manual 2026-11-13 00:32: carro y carga a 0.68 m/s sin consigna, ~9 m hasta
+% volver al punto de partida). Sin consigna se agrega un olvido de la
+% corrección, d(dv)/dt = ... - dv/tau_th, y se reubican los polos del lazo
+% (PID general con tercer polo, informe sección 5):
+%   (s + p3) (s^2 + 2 xi w s + w^2),  w = k_w_c_th_idle w_n,  p3 = k_p3_th_idle w_n
+%   1/tau_th = p3 w^2/w_n^2,  K_p = w^2 + 2 xi w p3,  K_d = 2 xi w + p3 - 1/tau_th
+% Con consigna sigue el PD con k_w_c_th y el decaimiento (no cambia el
+% balanceo en traslación). Con k_w_c_th_idle = k_p3_th_idle = k_w_c_th, polo
+% triple en -k_w_c_th w_n. Simulación con la lógica de cierre del freno
+% (DIARIO 2026-11-13, escenario_retorno_sin_consigna: pausa de la palanca de
+% 2.5-3.5 s): retorno sin consigna de 2.1-3.0 m y freno a 13-14 s de soltar,
+% contra 19-37 m (o sin detenerse) sin olvido; con (1.25, 1.0), 3.0-4.6 m.
+% Frenado estándar (60 a 5 m): igual que sin olvido
+k_w_c_th_idle = 1.5;  % [-] factor de frecuencia natural del par de polos sin consigna
+k_p3_th_idle = 1.5;   % [-] factor del tercer polo (olvido de la corrección) sin consigna
 
 % Subida limitada con balanceo grande (función limit_v_h del supervisor):
 % acortar el cable amplifica la amplitud del balanceo (~l^(-3/4)). Cerca de los
